@@ -1,0 +1,708 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== USER & AUTHENTICATION ==============
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          UserRole  @default(STAFF)
+  phone         String?
+  avatar        String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  appointments  Appointment[]
+  transactions  Transaction[]
+  incidents     Incident[]
+  groomingSessions GroomingSession[]
+
+  @@index([email])
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  GROOMER
+  RECEPTIONIST
+  STAFF
+}
+
+// ============== CLIENT & PET MANAGEMENT ==============
+model Client {
+  id              String    @id @default(cuid())
+  firstName       String
+  lastName        String
+  email           String    @unique
+  phone           String
+  alternatePhone  String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  notes           String?
+  loyaltyPoints   Int       @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  pets            Pet[]
+  appointments    Appointment[]
+  transactions    Transaction[]
+  giftCards       GiftCard[]
+  reminderHistory ReminderHistory[]
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Pet {
+  id                String    @id @default(cuid())
+  name              String
+  species           Species   @default(DOG)
+  breedId           String
+  breed             Breed     @relation(fields: [breedId], references: [id])
+  dateOfBirth       DateTime?
+  gender            Gender
+  weight            Float?
+  color             String?
+  microchipNumber   String?
+  isNeutered        Boolean   @default(false)
+  temperament       String?
+  specialNeeds      String?
+  allergies         String?
+  feedingInstructions String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  clientId          String
+  client            Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vaccinationRecords VaccinationRecord[]
+  behavioralNotes   BehavioralNote[]
+  groomingHistory   GroomingSession[]
+  photos            PetPhoto[]
+  appointments      Appointment[]
+  healthAlerts      HealthAlert[]
+  groomingPreferences GroomingPreference?
+  reminderHistory   ReminderHistory[]
+
+  @@index([clientId])
+  @@index([breedId])
+}
+
+enum Species {
+  DOG
+  CAT
+  OTHER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+model Breed {
+  id              String    @id @default(cuid())
+  name            String
+  species         Species   @default(DOG)
+  size            BreedSize
+  coatType        String?
+  groomingFrequency Int?    // Recommended days between grooming
+  typicalDuration Int?      // Typical grooming duration in minutes
+  description     String?
+  imageUrl        String?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  pets            Pet[]
+  breedServices   BreedService[]
+
+  @@unique([name, species])
+  @@index([species])
+}
+
+enum BreedSize {
+  EXTRA_SMALL
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
+}
+
+model VaccinationRecord {
+  id              String    @id @default(cuid())
+  petId           String
+  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vaccineName     String
+  dateAdministered DateTime
+  expirationDate  DateTime?
+  veterinarian    String?
+  notes           String?
+  documentUrl     String?
+  isVerified      Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  @@index([petId])
+  @@index([expirationDate])
+}
+
+model BehavioralNote {
+  id          String    @id @default(cuid())
+  petId       String
+  pet         Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  category    BehaviorCategory
+  severity    Severity  @default(LOW)
+  description String
+  triggers    String?
+  solutions   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([petId])
+}
+
+enum BehaviorCategory {
+  AGGRESSION
+  ANXIETY
+  FEAR
+  SENSITIVITY
+  HANDLING
+  OTHER
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model PetPhoto {
+  id          String    @id @default(cuid())
+  petId       String
+  pet         Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  url         String
+  caption     String?
+  isBefore    Boolean   @default(false)
+  isAfter     Boolean   @default(false)
+  sessionId   String?
+  session     GroomingSession? @relation(fields: [sessionId], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@index([petId])
+  @@index([sessionId])
+}
+
+// ============== GROOMING PREFERENCES & NOTES ==============
+model GroomingPreference {
+  id              String    @id @default(cuid())
+  petId           String    @unique
+  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  preferredStyle  String?
+  coatLength      String?
+  specificCuts    String?
+  sensitiveAreas  String?
+  avoidAreas      String?
+  shampooPreference String?
+  conditionerPreference String?
+  dryingPreference String?
+  additionalNotes String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model GroomingSession {
+  id              String    @id @default(cuid())
+  petId           String
+  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  groomerId       String
+  groomer         User      @relation(fields: [groomerId], references: [id])
+  appointmentId   String?   @unique
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+
+  // Session details
+  checkInTime     DateTime?
+  checkOutTime    DateTime?
+  status          SessionStatus @default(PENDING)
+
+  // Grooming notes
+  conditionNotes  String?
+  servicesNotes   String?
+  behaviorNotes   String?
+  issuesFound     String?
+  recommendations String?
+
+  // Photos
+  photos          PetPhoto[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([petId])
+  @@index([groomerId])
+}
+
+enum SessionStatus {
+  PENDING
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ============== APPOINTMENT SYSTEM ==============
+model Appointment {
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  petId           String
+  pet             Pet       @relation(fields: [petId], references: [id])
+  groomerId       String?
+  groomer         User?     @relation(fields: [groomerId], references: [id])
+
+  // Timing
+  scheduledDate   DateTime
+  scheduledTime   String
+  duration        Int       // Duration in minutes
+
+  // Status
+  status          AppointmentStatus @default(SCHEDULED)
+
+  // Recurrence
+  isRecurring     Boolean   @default(false)
+  recurrenceRule  String?   // RRULE format
+  parentId        String?
+  parent          Appointment? @relation("RecurringAppointments", fields: [parentId], references: [id])
+  children        Appointment[] @relation("RecurringAppointments")
+
+  // Services
+  services        AppointmentService[]
+
+  // Notes
+  notes           String?
+  specialRequests String?
+
+  // Reminders
+  reminderSent    Boolean   @default(false)
+  reminderSentAt  DateTime?
+
+  // Session
+  session         GroomingSession?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([petId])
+  @@index([groomerId])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model AppointmentService {
+  id            String    @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  serviceId     String
+  service       Service   @relation(fields: [serviceId], references: [id])
+  price         Float
+  duration      Int
+  notes         String?
+
+  @@index([appointmentId])
+  @@index([serviceId])
+}
+
+// ============== SERVICE MANAGEMENT ==============
+model Service {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  category        ServiceCategory
+  basePrice       Float
+  baseDuration    Int       // Base duration in minutes
+  isActive        Boolean   @default(true)
+  isAddOn         Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  breedServices   BreedService[]
+  appointmentServices AppointmentService[]
+  packageServices PackageService[]
+  transactionItems TransactionItem[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+enum ServiceCategory {
+  BATH
+  HAIRCUT
+  STYLING
+  NAIL_CARE
+  EAR_CARE
+  TEETH_CARE
+  SPECIALTY
+  ADD_ON
+}
+
+model BreedService {
+  id          String    @id @default(cuid())
+  breedId     String
+  breed       Breed     @relation(fields: [breedId], references: [id], onDelete: Cascade)
+  serviceId   String
+  service     Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  priceModifier Float   @default(0)  // Additional cost for this breed
+  durationModifier Int  @default(0)  // Additional time in minutes
+
+  @@unique([breedId, serviceId])
+  @@index([breedId])
+  @@index([serviceId])
+}
+
+model ServicePackage {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  price           Float
+  discount        Float     @default(0)  // Percentage discount
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  services        PackageService[]
+  transactionItems TransactionItem[]
+}
+
+model PackageService {
+  id          String    @id @default(cuid())
+  packageId   String
+  package     ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  serviceId   String
+  service     Service   @relation(fields: [serviceId], references: [id])
+
+  @@unique([packageId, serviceId])
+  @@index([packageId])
+  @@index([serviceId])
+}
+
+model SpecialHandlingFee {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  amount      Float
+  isPercentage Boolean  @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+}
+
+// ============== POINT OF SALE ==============
+model Transaction {
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  staffId         String
+  staff           User      @relation(fields: [staffId], references: [id])
+
+  // Amounts
+  subtotal        Float
+  tax             Float
+  discount        Float     @default(0)
+  tip             Float     @default(0)
+  total           Float
+
+  // Payment
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(PENDING)
+
+  // Gift card usage
+  giftCardId      String?
+  giftCard        GiftCard? @relation(fields: [giftCardId], references: [id])
+  giftCardAmount  Float     @default(0)
+
+  // Loyalty
+  loyaltyPointsEarned Int   @default(0)
+  loyaltyPointsUsed   Int   @default(0)
+
+  // Items
+  items           TransactionItem[]
+
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([staffId])
+  @@index([createdAt])
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  GIFT_CARD
+  LOYALTY_POINTS
+  MIXED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+  FAILED
+}
+
+model TransactionItem {
+  id              String    @id @default(cuid())
+  transactionId   String
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  // Item can be a service, package, or product
+  itemType        ItemType
+  serviceId       String?
+  service         Service?  @relation(fields: [serviceId], references: [id])
+  packageId       String?
+  package         ServicePackage? @relation(fields: [packageId], references: [id])
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id])
+
+  quantity        Int       @default(1)
+  unitPrice       Float
+  discount        Float     @default(0)
+  total           Float
+
+  @@index([transactionId])
+}
+
+enum ItemType {
+  SERVICE
+  PACKAGE
+  PRODUCT
+}
+
+model Product {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  sku             String    @unique
+  category        ProductCategory
+  price           Float
+  cost            Float?
+  quantity        Int       @default(0)
+  reorderLevel    Int       @default(5)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  transactionItems TransactionItem[]
+
+  @@index([category])
+  @@index([sku])
+}
+
+enum ProductCategory {
+  SHAMPOO
+  CONDITIONER
+  BRUSH
+  COLLAR
+  LEASH
+  TOY
+  TREAT
+  ACCESSORY
+  OTHER
+}
+
+model GiftCard {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  initialBalance  Float
+  currentBalance  Float
+  clientId        String?
+  client          Client?   @relation(fields: [clientId], references: [id])
+  isActive        Boolean   @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  transactions    Transaction[]
+
+  @@index([code])
+  @@index([clientId])
+}
+
+// ============== HEALTH & SAFETY ==============
+model HealthAlert {
+  id              String    @id @default(cuid())
+  petId           String
+  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  alertType       AlertType
+  severity        Severity
+  title           String
+  description     String
+  isResolved      Boolean   @default(false)
+  resolvedAt      DateTime?
+  resolvedNotes   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([petId])
+  @@index([isResolved])
+}
+
+enum AlertType {
+  VACCINATION_EXPIRED
+  HEALTH_CONDITION
+  SKIN_ISSUE
+  COAT_ISSUE
+  BEHAVIOR_CONCERN
+  INJURY
+  ALLERGY
+  OTHER
+}
+
+model Incident {
+  id              String    @id @default(cuid())
+  reportedBy      String
+  reporter        User      @relation(fields: [reportedBy], references: [id])
+  incidentType    IncidentType
+  severity        Severity
+  title           String
+  description     String
+  location        String?
+  actionsTaken    String?
+  followUpRequired Boolean  @default(false)
+  isResolved      Boolean   @default(false)
+  resolvedAt      DateTime?
+  resolvedNotes   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([reportedBy])
+  @@index([isResolved])
+}
+
+enum IncidentType {
+  PET_INJURY
+  STAFF_INJURY
+  EQUIPMENT_FAILURE
+  ESCAPE_ATTEMPT
+  AGGRESSION
+  ALLERGIC_REACTION
+  OTHER
+}
+
+model EmergencyContact {
+  id              String    @id @default(cuid())
+  name            String
+  relationship    String
+  phone           String
+  alternatePhone  String?
+  email           String?
+  isVeterinarian  Boolean   @default(false)
+  vetClinicName   String?
+  vetAddress      String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ============== AI FEATURES STORAGE ==============
+model AIBreedPrediction {
+  id              String    @id @default(cuid())
+  imageUrl        String
+  predictedBreed  String
+  confidence      Float
+  alternativeBreeds String?  // JSON array of alternatives
+  createdAt       DateTime  @default(now())
+}
+
+model AIStyleSuggestion {
+  id              String    @id @default(cuid())
+  petId           String
+  breedId         String
+  suggestedStyles String    // JSON array of style suggestions
+  reasoning       String?
+  createdAt       DateTime  @default(now())
+
+  @@index([petId])
+}
+
+model AISocialPost {
+  id              String    @id @default(cuid())
+  petPhotoId      String
+  platform        String
+  content         String
+  hashtags        String?
+  isPosted        Boolean   @default(false)
+  postedAt        DateTime?
+  createdAt       DateTime  @default(now())
+}
+
+// ============== SETTINGS ==============
+model BusinessSettings {
+  id              String    @id @default(cuid())
+  businessName    String
+  address         String?
+  phone           String?
+  email           String?
+  website         String?
+  timezone        String    @default("America/New_York")
+  currency        String    @default("USD")
+  taxRate         Float     @default(0)
+
+  // Operating hours (JSON)
+  operatingHours  String?
+
+  // Booking settings
+  bookingLeadTime Int       @default(24)  // Hours in advance required
+  maxAdvanceBooking Int     @default(30)  // Days in advance allowed
+  slotDuration    Int       @default(15)  // Minutes per slot
+
+  // Loyalty settings
+  loyaltyPointsPerDollar Int @default(1)
+  loyaltyPointsValue     Float @default(0.01)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ============== REMINDER HISTORY ==============
+model ReminderHistory {
+  id              String    @id @default(cuid())
+  petId           String
+  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type            String    // OVERDUE, DUE, UPCOMING, NEW_CLIENT
+  message         String
+  sentVia         String    @default("EMAIL") // EMAIL, SMS, BOTH
+  sentAt          DateTime  @default(now())
+
+  @@index([petId])
+  @@index([clientId])
+  @@index([sentAt])
+}
