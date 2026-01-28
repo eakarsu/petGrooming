@@ -1,0 +1,81 @@
+1. Start the App
+
+  ./start.sh
+  This seeds the database with test data needed for the features to work.
+
+  2. Login
+
+  - Go to http://localhost:3000/auth/login
+  - Click "Use Demo Credentials" button - it fills in the form
+  - Click Sign In
+
+  3. Test Each Feature
+
+  Groomer Workload (/grooming/workload)
+
+  - Click "Workload" in sidebar
+  - Use < > arrows to navigate weeks
+  - Click groomer names to filter by individual groomer
+  - Click "Today" to return to current week
+
+  Photo Gallery (/gallery)
+
+  - Click "Gallery" in sidebar
+  - Use search box to filter by pet/client name
+  - Click any photo card to open comparison dialog
+  - Stats cards show totals automatically
+
+  Loyalty Dashboard (/loyalty)
+
+  - Click "Loyalty" in sidebar
+  - "Loyalty Tiers" tab shows all clients with their tier status
+  - Use search to find specific clients
+  - "Service Packages" tab shows available packages with savings
+
+  Reminders (/reminders)
+
+  - Click "Reminders" in sidebar
+  - "Pending" tab shows pets due for grooming
+  - Click "Send Reminder" on any row to generate AI message
+  - Review message in dialog, click "Send Reminder" to confirm
+  - "Sent History" tab shows previously sent reminders
+
+  Medical Timeline (on Pet Detail)
+
+  - Click "Pets" in sidebar
+  - Click any pet row to view details
+  - Click "Timeline" tab to see medical history
+  - Timeline shows vaccinations, alerts, and notes chronologically
+  - Right side shows health summary card
+
+  Health AI Analysis (/health)
+
+  - Click "Health & Safety" in sidebar
+  - Click "Health Alerts" tab
+  - Click any alert card to open details
+  - Click "AI Analyze" button for AI recommendations
+
+  Demo Credentials Button
+
+  - Log out (click Sign Out at bottom of sidebar)
+  - On login page, click "Use Demo Credentials"
+  - Form auto-fills with admin credentials
+
+  Quick Test Checklist
+  ┌────────────┬────────────────────┬─────────────────────────────────────┐
+  │  Feature   │       Where        │            What to Click            │
+  ├────────────┼────────────────────┼─────────────────────────────────────┤
+  │ Demo login │ /auth/login        │ "Use Demo Credentials" button       │
+  ├────────────┼────────────────────┼─────────────────────────────────────┤
+  │ Workload   │ /grooming/workload │ Week arrows, groomer filter buttons │
+  ├────────────┼────────────────────┼─────────────────────────────────────┤
+  │ Gallery    │ /gallery           │ Photo cards, search box             │
+  ├────────────┼────────────────────┼─────────────────────────────────────┤
+  │ Loyalty    │ /loyalty           │ Tabs, search, package cards         │
+  ├────────────┼────────────────────┼─────────────────────────────────────┤
+  │ Reminders  │ /reminders         │ "Send Reminder" buttons             │
+  ├────────────┼────────────────────┼─────────────────────────────────────┤
+  │ Timeline   │ /pets/[id]         │ "Timeline" tab                      │
+  ├────────────┼────────────────────┼─────────────────────────────────────┤
+  │ AI Health  │ /health            │ Alert card → "AI Analyze"           │
+  └────────────┴────────────────────┴─────────────────────────────────────┘
