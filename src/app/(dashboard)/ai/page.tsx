@@ -28,6 +28,12 @@ import {
   Upload,
   AlertCircle,
   FileText,
+  Utensils,
+  Brain,
+  Activity,
+  CheckCircle,
+  Clock,
+  Stethoscope,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -72,6 +78,50 @@ export default function AIFeaturesPage() {
   const [messagePet, setMessagePet] = useState('')
   const [messageContext, setMessageContext] = useState('')
   const [messageResult, setMessageResult] = useState<any>(null)
+  // Diet Recommender state
+  const [dietPetType, setDietPetType] = useState('')
+  const [dietBreed, setDietBreed] = useState('')
+  const [dietAge, setDietAge] = useState('')
+  const [dietWeight, setDietWeight] = useState('')
+  const [dietActivity, setDietActivity] = useState('')
+  const [dietHealth, setDietHealth] = useState('')
+  const [dietCurrent, setDietCurrent] = useState('')
+  const [dietResult, setDietResult] = useState<any>(null)
+  // Behavior Analyzer state
+  const [behaviorPetType, setBehaviorPetType] = useState('')
+  const [behaviorBreed, setBehaviorBreed] = useState('')
+  const [behaviorAge, setBehaviorAge] = useState('')
+  const [behaviorDescription, setBehaviorDescription] = useState('')
+  const [behaviorContext, setBehaviorContext] = useState('')
+  const [behaviorFrequency, setBehaviorFrequency] = useState('')
+  const [behaviorResult, setBehaviorResult] = useState<any>(null)
+  // Veterinary AI state
+  const [diagSpecies, setDiagSpecies] = useState('')
+  const [diagBreed, setDiagBreed] = useState('')
+  const [diagAge, setDiagAge] = useState('')
+  const [diagSymptoms, setDiagSymptoms] = useState('')
+  const [diagHistory, setDiagHistory] = useState('')
+  const [diagResult, setDiagResult] = useState<any>(null)
+
+  const [treatSpecies, setTreatSpecies] = useState('')
+  const [treatBreed, setTreatBreed] = useState('')
+  const [treatAge, setTreatAge] = useState('')
+  const [treatWeight, setTreatWeight] = useState('')
+  const [treatDiagnosis, setTreatDiagnosis] = useState('')
+  const [treatMedications, setTreatMedications] = useState('')
+  const [treatResult, setTreatResult] = useState<any>(null)
+
+  const [symptomSpecies, setSymptomSpecies] = useState('')
+  const [symptomSymptoms, setSymptomSymptoms] = useState('')
+  const [symptomDuration, setSymptomDuration] = useState('')
+  const [symptomSeverity, setSymptomSeverity] = useState('')
+  const [symptomResult, setSymptomResult] = useState<any>(null)
+
+  const [drugSpecies, setDrugSpecies] = useState('')
+  const [drugMedications, setDrugMedications] = useState('')
+  const [drugWeight, setDrugWeight] = useState('')
+  const [drugResult, setDrugResult] = useState<any>(null)
+
   const [loading, setLoading] = useState<string | null>(null)
 
   // Fetch breeds on mount
@@ -330,6 +380,69 @@ export default function AIFeaturesPage() {
     }
   }
 
+  const handleDietRecommend = async () => {
+    if (!dietPetType || !dietBreed || !dietAge || !dietWeight || !dietActivity) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+    setLoading('diet')
+    try {
+      const response = await fetch('/api/ai/diet-recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          petType: dietPetType,
+          breed: dietBreed,
+          age: dietAge,
+          weight: parseFloat(dietWeight),
+          activityLevel: dietActivity,
+          healthConditions: dietHealth || undefined,
+          currentDiet: dietCurrent || undefined,
+        }),
+      })
+      const data = await response.json()
+      if (data.error) throw new Error(data.error)
+      setDietResult(data)
+      toast.success('Diet recommendations generated!')
+    } catch (error) {
+      toast.error('Failed to generate diet recommendations')
+      console.error(error)
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  const handleBehaviorAnalyze = async () => {
+    if (!behaviorPetType || !behaviorBreed || !behaviorAge || !behaviorDescription) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+    setLoading('behavior')
+    try {
+      const response = await fetch('/api/ai/behavior-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          petType: behaviorPetType,
+          breed: behaviorBreed,
+          age: behaviorAge,
+          behaviorDescription: behaviorDescription,
+          context: behaviorContext || undefined,
+          frequency: behaviorFrequency || undefined,
+        }),
+      })
+      const data = await response.json()
+      if (data.error) throw new Error(data.error)
+      setBehaviorResult(data)
+      toast.success('Behavior analysis complete!')
+    } catch (error) {
+      toast.error('Failed to analyze behavior')
+      console.error(error)
+    } finally {
+      setLoading(null)
+    }
+  }
+
   // Example data loaders
   const loadStyleExample = () => {
     setStyleBreed('Poodle')
@@ -402,16 +515,106 @@ export default function AIFeaturesPage() {
     toast.success('Example loaded!')
   }
 
+  const loadDietExample = () => {
+    setDietPetType('Dog')
+    setDietBreed('Golden Retriever')
+    setDietAge('3 years')
+    setDietWeight('70')
+    setDietActivity('Moderate')
+    setDietHealth('None')
+    setDietCurrent('Dry kibble twice daily')
+    setDietResult(null)
+    toast.success('Example loaded!')
+  }
+
+  // === Veterinary AI Handlers ===
+  const handleDiagnosis = async () => {
+    if (!diagSpecies || !diagSymptoms) { toast.error('Species and symptoms are required'); return }
+    setLoading('diagnosis')
+    try {
+      const res = await fetch('/api/ai/diagnosis', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ species: diagSpecies, breed: diagBreed, age: diagAge, symptoms: diagSymptoms, history: diagHistory || undefined }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setDiagResult(data)
+      toast.success('Diagnosis analysis complete!')
+    } catch { toast.error('Failed to analyze') } finally { setLoading(null) }
+  }
+
+  const handleTreatment = async () => {
+    if (!treatSpecies || !treatDiagnosis) { toast.error('Species and diagnosis are required'); return }
+    setLoading('treatment')
+    try {
+      const res = await fetch('/api/ai/treatment', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ species: treatSpecies, breed: treatBreed, age: treatAge, weight: treatWeight, diagnosis: treatDiagnosis, currentMedications: treatMedications || undefined }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setTreatResult(data)
+      toast.success('Treatment plan generated!')
+    } catch { toast.error('Failed to generate treatment plan') } finally { setLoading(null) }
+  }
+
+  const handleSymptomCheck = async () => {
+    if (!symptomSpecies || !symptomSymptoms) { toast.error('Species and symptoms are required'); return }
+    setLoading('symptom')
+    try {
+      const res = await fetch('/api/ai/symptom-checker', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ species: symptomSpecies, symptoms: symptomSymptoms, duration: symptomDuration || undefined, severity: symptomSeverity || undefined }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setSymptomResult(data)
+      toast.success('Symptom analysis complete!')
+    } catch { toast.error('Failed to check symptoms') } finally { setLoading(null) }
+  }
+
+  const handleDrugInteraction = async () => {
+    if (!drugSpecies || !drugMedications) { toast.error('Species and medications are required'); return }
+    setLoading('drug')
+    try {
+      const res = await fetch('/api/ai/drug-interaction', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ species: drugSpecies, medications: drugMedications, weight: drugWeight || undefined }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setDrugResult(data)
+      toast.success('Drug interaction analysis complete!')
+    } catch { toast.error('Failed to check interactions') } finally { setLoading(null) }
+  }
+
+  const loadBehaviorExample = () => {
+    setBehaviorPetType('Dog')
+    setBehaviorBreed('German Shepherd')
+    setBehaviorAge('2 years')
+    setBehaviorDescription('Excessive barking when doorbell rings, jumping on guests, difficulty settling down')
+    setBehaviorContext('Recently moved to a new apartment with more foot traffic in the hallway')
+    setBehaviorFrequency('Multiple times daily')
+    setBehaviorResult(null)
+    toast.success('Example loaded!')
+  }
+
   const aiFeatures = [
     { id: 'breed-identifier', title: 'AI Breed Identifier', description: 'Upload a photo to identify the breed', icon: Camera, status: 'active' },
     { id: 'style-suggester', title: 'AI Style Suggester', description: 'Get grooming style recommendations', icon: Sparkles, status: 'active' },
     { id: 'health-spotter', title: 'AI Health Spotter', description: 'Identify skin and coat issues', icon: Heart, status: 'active' },
+    { id: 'diet-recommender', title: 'AI Diet Recommender', description: 'Get personalized nutrition advice', icon: Utensils, status: 'active' },
+    { id: 'behavior-analyzer', title: 'AI Behavior Analyzer', description: 'Understand pet behavior patterns', icon: Brain, status: 'active' },
     { id: 'social-generator', title: 'AI Social Generator', description: 'Generate social media posts', icon: MessageSquare, status: 'active' },
-    { id: 'reminder-generator', title: 'AI Reminder Generator', description: 'Create personalized reminders', icon: MessageSquare, status: 'active' },
+    { id: 'reminder-generator', title: 'AI Reminder Generator', description: 'Create personalized reminders', icon: Clock, status: 'active' },
     { id: 'upsell-recommender', title: 'AI Upsell Recommender', description: 'Suggest add-on services', icon: TrendingUp, status: 'active' },
     { id: 'appointment-optimizer', title: 'AI Appointment Estimator', description: 'Get duration, pricing & grooming tips', icon: Calendar, status: 'active' },
     { id: 'photo-enhancer', title: 'AI Photo Enhancer', description: 'Enhance before/after photos', icon: Image, status: 'active' },
     { id: 'client-messenger', title: 'AI Client Messenger', description: 'Generate professional client messages', icon: MessageSquare, status: 'active' },
+    { id: 'vet-diagnosis', title: 'AI Vet Diagnosis', description: 'Differential diagnoses & recommendations', icon: Activity, status: 'active' },
+    { id: 'vet-treatment', title: 'AI Treatment Plan', description: 'Treatment plans with medications', icon: FileText, status: 'active' },
+    { id: 'vet-symptom-checker', title: 'AI Symptom Checker', description: 'Urgency-based symptom analysis', icon: AlertCircle, status: 'active' },
+    { id: 'vet-drug-interaction', title: 'AI Drug Interactions', description: 'Check medication interactions', icon: Activity, status: 'active' },
   ]
 
   const scrollToFeature = (id: string) => {
@@ -1564,6 +1767,776 @@ export default function AIFeaturesPage() {
                     Copy Message Only
                   </Button>
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Diet Recommender */}
+        <Card id="diet-recommender">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Utensils className="h-5 w-5" />
+              AI Diet Recommender
+            </CardTitle>
+            <CardDescription>Get personalized nutrition and feeding recommendations</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Pet Type *</Label>
+                <Select value={dietPetType} onValueChange={setDietPetType}>
+                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dog">Dog</SelectItem>
+                    <SelectItem value="Cat">Cat</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Breed *</Label>
+                <Input value={dietBreed} onChange={(e) => setDietBreed(e.target.value)} placeholder="e.g., Golden Retriever" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Age *</Label>
+                <Input value={dietAge} onChange={(e) => setDietAge(e.target.value)} placeholder="e.g., 3 years" />
+              </div>
+              <div className="space-y-2">
+                <Label>Weight (lbs) *</Label>
+                <Input type="number" value={dietWeight} onChange={(e) => setDietWeight(e.target.value)} placeholder="e.g., 70" />
+              </div>
+              <div className="space-y-2">
+                <Label>Activity Level *</Label>
+                <Select value={dietActivity} onValueChange={setDietActivity}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Sedentary">Sedentary</SelectItem>
+                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Moderate">Moderate</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Very High">Very High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Health Conditions (Optional)</Label>
+                <Input value={dietHealth} onChange={(e) => setDietHealth(e.target.value)} placeholder="e.g., Allergies, diabetes" />
+              </div>
+              <div className="space-y-2">
+                <Label>Current Diet (Optional)</Label>
+                <Input value={dietCurrent} onChange={(e) => setDietCurrent(e.target.value)} placeholder="e.g., Dry kibble twice daily" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleDietRecommend} loading={loading === 'diet'} className="flex-1">
+                <Wand2 className="mr-2 h-4 w-4" />
+                Get Diet Recommendations
+              </Button>
+              <Button variant="outline" onClick={loadDietExample}>
+                <FileText className="mr-2 h-4 w-4" />
+                Load Example
+              </Button>
+            </div>
+
+            {dietResult && (
+              <div className="space-y-4">
+                {/* Daily Calories & Feeding Schedule */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 p-4 text-center">
+                    <p className="text-xs text-green-600 font-medium mb-1">Daily Calories</p>
+                    <p className="text-2xl font-bold text-green-800">{dietResult.dailyCalories || 'N/A'} cal</p>
+                  </div>
+                  {dietResult.feedingSchedule && (
+                    <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 p-4 text-center">
+                      <p className="text-xs text-blue-600 font-medium mb-1">Meals Per Day</p>
+                      <p className="text-2xl font-bold text-blue-800">{dietResult.feedingSchedule.mealsPerDay || 2}</p>
+                      {dietResult.feedingSchedule.bestTimes && (
+                        <p className="text-xs text-blue-600 mt-1">{dietResult.feedingSchedule.bestTimes.join(' & ')}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Recommendations */}
+                {dietResult.recommendations && dietResult.recommendations.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="font-medium text-gray-700">Nutrition Recommendations:</p>
+                    {dietResult.recommendations.map((rec: any, i: number) => (
+                      <div key={i} className="rounded-lg border bg-white p-4 hover:shadow-sm transition-shadow">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-green-600 border-green-300">{rec.category}</Badge>
+                            {rec.portionSize && <span className="text-xs text-gray-500">{rec.portionSize}</span>}
+                          </div>
+                          {rec.frequency && <span className="text-xs text-purple-600 font-medium">{rec.frequency}</span>}
+                        </div>
+                        <p className="text-sm text-gray-700 mb-2">{rec.suggestion}</p>
+                        {rec.benefits && rec.benefits.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {rec.benefits.map((benefit: string, j: number) => (
+                              <span key={j} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded">{benefit}</span>
+                            ))}
+                          </div>
+                        )}
+                        {rec.brands && rec.brands.length > 0 && (
+                          <p className="text-xs text-gray-500">Recommended brands: {rec.brands.join(', ')}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Foods to Avoid */}
+                {dietResult.foodsToAvoid && dietResult.foodsToAvoid.length > 0 && (
+                  <div className="rounded-lg bg-red-50 border border-red-200 p-4">
+                    <p className="font-medium text-red-800 mb-2 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Foods to Avoid:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {dietResult.foodsToAvoid.map((food: string, i: number) => (
+                        <Badge key={i} variant="destructive">{food}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Supplements */}
+                {dietResult.supplementsNeeded && dietResult.supplementsNeeded.length > 0 && (
+                  <div className="rounded-lg bg-purple-50 border border-purple-200 p-4">
+                    <p className="font-medium text-purple-800 mb-2">Recommended Supplements:</p>
+                    <ul className="space-y-1">
+                      {dietResult.supplementsNeeded.map((supp: string, i: number) => (
+                        <li key={i} className="text-sm text-purple-700 flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
+                          {supp}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Hydration Tips */}
+                {dietResult.hydrationTips && dietResult.hydrationTips.length > 0 && (
+                  <div className="rounded-lg bg-cyan-50 border border-cyan-200 p-4">
+                    <p className="font-medium text-cyan-800 mb-2">Hydration Tips:</p>
+                    <ul className="space-y-1">
+                      {dietResult.hydrationTips.map((tip: string, i: number) => (
+                        <li key={i} className="text-sm text-cyan-700 flex items-start gap-2">
+                          <span className="text-cyan-500">•</span>
+                          {tip}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Special Considerations */}
+                {dietResult.specialConsiderations && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-4">
+                    <p className="font-medium text-amber-800 mb-1">Special Considerations:</p>
+                    <p className="text-sm text-amber-700">{dietResult.specialConsiderations}</p>
+                  </div>
+                )}
+
+                {/* Disclaimer */}
+                <div className="rounded-lg bg-gray-100 p-3">
+                  <p className="text-xs text-gray-600 italic flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    This is AI-generated guidance. Consult a veterinarian for personalized dietary advice.
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Behavior Analyzer */}
+        <Card id="behavior-analyzer">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5" />
+              AI Behavior Analyzer
+            </CardTitle>
+            <CardDescription>Understand and address pet behavior patterns</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Pet Type *</Label>
+                <Select value={behaviorPetType} onValueChange={setBehaviorPetType}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dog">Dog</SelectItem>
+                    <SelectItem value="Cat">Cat</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Breed *</Label>
+                <Input value={behaviorBreed} onChange={(e) => setBehaviorBreed(e.target.value)} placeholder="e.g., German Shepherd" />
+              </div>
+              <div className="space-y-2">
+                <Label>Age *</Label>
+                <Input value={behaviorAge} onChange={(e) => setBehaviorAge(e.target.value)} placeholder="e.g., 2 years" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Behavior Description *</Label>
+              <Textarea
+                value={behaviorDescription}
+                onChange={(e) => setBehaviorDescription(e.target.value)}
+                placeholder="Describe the behavior you want to understand (e.g., excessive barking, aggression, anxiety, destructive behavior)"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Context/Situation (Optional)</Label>
+                <Input value={behaviorContext} onChange={(e) => setBehaviorContext(e.target.value)} placeholder="e.g., When left alone, during walks" />
+              </div>
+              <div className="space-y-2">
+                <Label>How Often (Optional)</Label>
+                <Select value={behaviorFrequency} onValueChange={setBehaviorFrequency}>
+                  <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Rarely">Rarely</SelectItem>
+                    <SelectItem value="Sometimes">Sometimes</SelectItem>
+                    <SelectItem value="Often">Often</SelectItem>
+                    <SelectItem value="Multiple times daily">Multiple times daily</SelectItem>
+                    <SelectItem value="Constantly">Constantly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleBehaviorAnalyze} loading={loading === 'behavior'} className="flex-1">
+                <Wand2 className="mr-2 h-4 w-4" />
+                Analyze Behavior
+              </Button>
+              <Button variant="outline" onClick={loadBehaviorExample}>
+                <FileText className="mr-2 h-4 w-4" />
+                Load Example
+              </Button>
+            </div>
+
+            {behaviorResult && (
+              <div className="space-y-4">
+                {/* Analysis Summary */}
+                {behaviorResult.analysis && (
+                  <div className="rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="text-xs text-indigo-600 font-medium mb-1">Behavior Type</p>
+                        <p className="text-xl font-bold text-indigo-800">{behaviorResult.analysis.behaviorType || 'Unknown'}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge variant={
+                          behaviorResult.analysis.severity?.toLowerCase() === 'high' ? 'destructive' :
+                          behaviorResult.analysis.severity?.toLowerCase() === 'medium' ? 'warning' : 'secondary'
+                        }>
+                          {behaviorResult.analysis.severity || 'Unknown'} Severity
+                        </Badge>
+                        {behaviorResult.analysis.breedTypical && (
+                          <Badge variant="outline" className="text-purple-600 border-purple-300">Breed Typical</Badge>
+                        )}
+                      </div>
+                    </div>
+                    {behaviorResult.analysis.possibleCauses && behaviorResult.analysis.possibleCauses.length > 0 && (
+                      <div>
+                        <p className="text-xs text-indigo-600 font-medium mb-1">Possible Causes:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {behaviorResult.analysis.possibleCauses.map((cause: string, i: number) => (
+                            <span key={i} className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">{cause}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Professional Help Alert */}
+                {behaviorResult.professionalHelpNeeded && (
+                  <div className="rounded-lg bg-red-100 border border-red-300 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <p className="font-semibold text-red-800">Professional Help Recommended</p>
+                    </div>
+                    <p className="text-sm text-red-700">{behaviorResult.professionalHelpReason || 'Consider consulting a certified animal behaviorist or veterinarian.'}</p>
+                  </div>
+                )}
+
+                {/* Recommendations */}
+                {behaviorResult.recommendations && behaviorResult.recommendations.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="font-medium text-gray-700">Training Approaches:</p>
+                    {behaviorResult.recommendations.map((rec: any, i: number) => (
+                      <div key={i} className="rounded-lg border bg-white p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-blue-600 border-blue-300">{rec.approach}</Badge>
+                            <Badge variant={
+                              rec.difficulty?.toLowerCase() === 'hard' ? 'destructive' :
+                              rec.difficulty?.toLowerCase() === 'medium' ? 'warning' : 'success'
+                            }>
+                              {rec.difficulty || 'Medium'}
+                            </Badge>
+                          </div>
+                          {rec.timeToResult && (
+                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {rec.timeToResult}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-700 mb-3">{rec.description}</p>
+                        {rec.steps && rec.steps.length > 0 && (
+                          <div className="bg-gray-50 rounded p-3">
+                            <p className="text-xs font-medium text-gray-600 mb-2">Steps:</p>
+                            <ol className="space-y-1">
+                              {rec.steps.map((step: string, j: number) => (
+                                <li key={j} className="text-xs text-gray-600 flex items-start gap-2">
+                                  <span className="font-bold text-blue-600">{j + 1}.</span>
+                                  {step}
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Training Tips */}
+                {behaviorResult.trainingTips && behaviorResult.trainingTips.length > 0 && (
+                  <div className="rounded-lg bg-green-50 border border-green-200 p-4">
+                    <p className="font-medium text-green-800 mb-3">Training Tips:</p>
+                    <div className="space-y-2">
+                      {behaviorResult.trainingTips.map((tip: any, i: number) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <Badge variant={
+                            tip.importance?.toLowerCase() === 'high' ? 'destructive' :
+                            tip.importance?.toLowerCase() === 'medium' ? 'warning' : 'secondary'
+                          } className="shrink-0 mt-0.5">
+                            {tip.importance}
+                          </Badge>
+                          <div>
+                            <p className="text-sm text-green-700">{tip.tip}</p>
+                            <p className="text-xs text-green-600">{tip.category}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Positive Reinforcement */}
+                {behaviorResult.positiveReinforcement && behaviorResult.positiveReinforcement.length > 0 && (
+                  <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
+                    <p className="font-medium text-yellow-800 mb-2">Positive Reinforcement Methods:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {behaviorResult.positiveReinforcement.map((method: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-yellow-700 border-yellow-400 bg-yellow-100">{method}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Environmental Changes */}
+                {behaviorResult.environmentalChanges && behaviorResult.environmentalChanges.length > 0 && (
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                    <p className="font-medium text-blue-800 mb-2">Environmental Changes:</p>
+                    <ul className="space-y-1">
+                      {behaviorResult.environmentalChanges.map((change: string, i: number) => (
+                        <li key={i} className="text-sm text-blue-700 flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                          {change}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Warning Signs */}
+                {behaviorResult.warningSignsToWatch && behaviorResult.warningSignsToWatch.length > 0 && (
+                  <div className="rounded-lg bg-orange-50 border border-orange-200 p-4">
+                    <p className="font-medium text-orange-800 mb-2 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Warning Signs to Watch:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {behaviorResult.warningSignsToWatch.map((sign: string, i: number) => (
+                        <span key={i} className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">{sign}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Expected Outcome */}
+                {behaviorResult.expectedOutcome && (
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+                    <p className="font-medium text-emerald-800 mb-1">Expected Outcome:</p>
+                    <p className="text-sm text-emerald-700">{behaviorResult.expectedOutcome}</p>
+                  </div>
+                )}
+
+                {/* Disclaimer */}
+                <div className="rounded-lg bg-gray-100 p-3">
+                  <p className="text-xs text-gray-600 italic flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    This is AI-generated guidance. For serious behavioral issues, consult a certified animal behaviorist.
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ========== VETERINARY AI TOOLS ========== */}
+      <div className="border-t pt-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Stethoscope className="h-6 w-6 text-primary-600" />
+          Veterinary AI Tools
+        </h2>
+        <p className="text-gray-500 mb-6">Clinical AI tools for veterinary diagnosis, treatment planning, symptom analysis, and drug interaction checking.</p>
+      </div>
+
+      {/* AI Diagnosis */}
+      <div className="grid gap-6 lg:grid-cols-2" id="vet-diagnosis">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-red-500" />
+              AI Veterinary Diagnosis
+            </CardTitle>
+            <CardDescription>Get differential diagnoses based on symptoms</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Species *</Label>
+                <Select value={diagSpecies} onValueChange={setDiagSpecies}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dog">Dog</SelectItem>
+                    <SelectItem value="Cat">Cat</SelectItem>
+                    <SelectItem value="Bird">Bird</SelectItem>
+                    <SelectItem value="Rabbit">Rabbit</SelectItem>
+                    <SelectItem value="Reptile">Reptile</SelectItem>
+                    <SelectItem value="Horse">Horse</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Breed</Label>
+                <Input value={diagBreed} onChange={(e) => setDiagBreed(e.target.value)} placeholder="e.g. Golden Retriever" />
+              </div>
+            </div>
+            <div>
+              <Label>Age</Label>
+              <Input value={diagAge} onChange={(e) => setDiagAge(e.target.value)} placeholder="e.g. 5 years" />
+            </div>
+            <div>
+              <Label>Symptoms *</Label>
+              <Textarea value={diagSymptoms} onChange={(e) => setDiagSymptoms(e.target.value)} placeholder="Describe symptoms in detail" rows={3} />
+            </div>
+            <div>
+              <Label>Medical History</Label>
+              <Textarea value={diagHistory} onChange={(e) => setDiagHistory(e.target.value)} placeholder="Previous conditions, surgeries, etc." rows={2} />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleDiagnosis} disabled={loading === 'diagnosis'} className="flex-1">
+                {loading === 'diagnosis' ? <><Clock className="h-4 w-4 mr-2 animate-spin" /> Analyzing...</> : <><Sparkles className="h-4 w-4 mr-2" /> Get Diagnosis</>}
+              </Button>
+              <Button variant="outline" onClick={() => { setDiagSpecies('Dog'); setDiagBreed('Bulldog'); setDiagAge('4 years'); setDiagSymptoms('Excessive scratching, skin redness, hot spots on belly and legs, occasional ear infections'); setDiagHistory('History of seasonal allergies'); setDiagResult(null); toast.success('Example loaded!') }}>
+                Load Example
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Diagnosis Results */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Diagnosis Results</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!diagResult ? (
+              <p className="text-gray-400 text-center py-8">Submit symptoms to get AI-powered differential diagnoses</p>
+            ) : (
+              <div className="space-y-4">
+                {diagResult.diagnoses && diagResult.diagnoses.map((d: any, i: number) => (
+                  <div key={i} className="rounded-lg border p-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="font-medium">{d.condition}</p>
+                      <Badge>{d.likelihood}</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600">{d.description}</p>
+                  </div>
+                ))}
+                {diagResult.recommendedTests && (
+                  <div className="bg-blue-50 rounded-lg p-3">
+                    <p className="font-medium text-blue-800 mb-1">Recommended Tests</p>
+                    <ul className="text-sm text-blue-700 space-y-1">{diagResult.recommendedTests.map((t: string, i: number) => <li key={i}>• {t}</li>)}</ul>
+                  </div>
+                )}
+                {diagResult.urgencyLevel && (
+                  <div className={`rounded-lg p-3 ${diagResult.urgencyLevel.toLowerCase().includes('high') || diagResult.urgencyLevel.toLowerCase().includes('critical') ? 'bg-red-50 text-red-800' : diagResult.urgencyLevel.toLowerCase().includes('medium') ? 'bg-yellow-50 text-yellow-800' : 'bg-green-50 text-green-800'}`}>
+                    <p className="font-medium">Urgency: {diagResult.urgencyLevel}</p>
+                  </div>
+                )}
+                {diagResult.additionalNotes && <p className="text-sm text-gray-600 italic">{diagResult.additionalNotes}</p>}
+                <p className="text-xs text-gray-400 italic">This is AI-generated guidance. Always consult a licensed veterinarian.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* AI Treatment Plan */}
+      <div className="grid gap-6 lg:grid-cols-2" id="vet-treatment">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-green-500" />
+              AI Treatment Plan
+            </CardTitle>
+            <CardDescription>Generate comprehensive treatment recommendations</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Species *</Label>
+                <Select value={treatSpecies} onValueChange={setTreatSpecies}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dog">Dog</SelectItem>
+                    <SelectItem value="Cat">Cat</SelectItem>
+                    <SelectItem value="Bird">Bird</SelectItem>
+                    <SelectItem value="Rabbit">Rabbit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Breed</Label>
+                <Input value={treatBreed} onChange={(e) => setTreatBreed(e.target.value)} placeholder="Breed" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Age</Label>
+                <Input value={treatAge} onChange={(e) => setTreatAge(e.target.value)} placeholder="e.g. 5 years" />
+              </div>
+              <div>
+                <Label>Weight (kg)</Label>
+                <Input value={treatWeight} onChange={(e) => setTreatWeight(e.target.value)} placeholder="e.g. 25" />
+              </div>
+            </div>
+            <div>
+              <Label>Diagnosis *</Label>
+              <Textarea value={treatDiagnosis} onChange={(e) => setTreatDiagnosis(e.target.value)} placeholder="Enter confirmed or suspected diagnosis" rows={2} />
+            </div>
+            <div>
+              <Label>Current Medications</Label>
+              <Input value={treatMedications} onChange={(e) => setTreatMedications(e.target.value)} placeholder="List current medications" />
+            </div>
+            <Button onClick={handleTreatment} disabled={loading === 'treatment'} className="w-full">
+              {loading === 'treatment' ? <><Clock className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4 mr-2" /> Generate Treatment Plan</>}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Treatment Plan</CardTitle></CardHeader>
+          <CardContent>
+            {!treatResult ? (
+              <p className="text-gray-400 text-center py-8">Enter diagnosis details to generate a treatment plan</p>
+            ) : (
+              <div className="space-y-4">
+                {treatResult.treatmentPlan && <div className="bg-green-50 rounded-lg p-3"><p className="text-sm text-green-800 whitespace-pre-wrap">{treatResult.treatmentPlan}</p></div>}
+                {treatResult.medications && treatResult.medications.length > 0 && (
+                  <div>
+                    <p className="font-medium mb-2">Medications</p>
+                    {treatResult.medications.map((m: any, i: number) => (
+                      <div key={i} className="border rounded-lg p-2 mb-2 text-sm">
+                        <p className="font-medium">{m.name}</p>
+                        <p className="text-gray-600">Dosage: {m.dosage} | Freq: {m.frequency} | Duration: {m.duration}</p>
+                        {m.notes && <p className="text-gray-500 italic">{m.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {treatResult.followUpSchedule && <div className="bg-blue-50 rounded-lg p-3"><p className="text-sm"><span className="font-medium">Follow-up:</span> {treatResult.followUpSchedule}</p></div>}
+                {treatResult.prognosis && <div className="bg-purple-50 rounded-lg p-3"><p className="text-sm"><span className="font-medium">Prognosis:</span> {treatResult.prognosis}</p></div>}
+                <p className="text-xs text-gray-400 italic">AI-generated guidance. Consult a licensed veterinarian.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* AI Symptom Checker */}
+      <div className="grid gap-6 lg:grid-cols-2" id="vet-symptom-checker">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-500" />
+              AI Symptom Checker
+            </CardTitle>
+            <CardDescription>Urgency-based symptom analysis with color-coded assessment</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Species *</Label>
+              <Select value={symptomSpecies} onValueChange={setSymptomSpecies}>
+                <SelectTrigger><SelectValue placeholder="Select species" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Dog">Dog</SelectItem>
+                  <SelectItem value="Cat">Cat</SelectItem>
+                  <SelectItem value="Bird">Bird</SelectItem>
+                  <SelectItem value="Rabbit">Rabbit</SelectItem>
+                  <SelectItem value="Reptile">Reptile</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Symptoms *</Label>
+              <Textarea value={symptomSymptoms} onChange={(e) => setSymptomSymptoms(e.target.value)} placeholder="Describe all observed symptoms" rows={3} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Duration</Label>
+                <Input value={symptomDuration} onChange={(e) => setSymptomDuration(e.target.value)} placeholder="e.g. 3 days" />
+              </div>
+              <div>
+                <Label>Severity</Label>
+                <Select value={symptomSeverity} onValueChange={setSymptomSeverity}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Mild">Mild</SelectItem>
+                    <SelectItem value="Moderate">Moderate</SelectItem>
+                    <SelectItem value="Severe">Severe</SelectItem>
+                    <SelectItem value="Critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button onClick={handleSymptomCheck} disabled={loading === 'symptom'} className="w-full">
+              {loading === 'symptom' ? <><Clock className="h-4 w-4 mr-2 animate-spin" /> Analyzing...</> : <><Sparkles className="h-4 w-4 mr-2" /> Check Symptoms</>}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Symptom Analysis</CardTitle></CardHeader>
+          <CardContent>
+            {!symptomResult ? (
+              <p className="text-gray-400 text-center py-8">Enter symptoms for urgency-based analysis</p>
+            ) : (
+              <div className="space-y-4">
+                {symptomResult.urgencyAssessment && (
+                  <div className={`rounded-lg p-4 border-2 ${symptomResult.urgencyAssessment.color === 'Red' ? 'bg-red-50 border-red-400' : symptomResult.urgencyAssessment.color === 'Orange' ? 'bg-orange-50 border-orange-400' : symptomResult.urgencyAssessment.color === 'Yellow' ? 'bg-yellow-50 border-yellow-400' : 'bg-green-50 border-green-400'}`}>
+                    <p className="font-bold text-lg">{symptomResult.urgencyAssessment.level}</p>
+                    <p className="text-sm">{symptomResult.urgencyAssessment.description}</p>
+                  </div>
+                )}
+                {symptomResult.symptomAnalysis && <div className="bg-gray-50 rounded-lg p-3"><p className="text-sm whitespace-pre-wrap">{symptomResult.symptomAnalysis}</p></div>}
+                {symptomResult.possibleConditions && symptomResult.possibleConditions.map((c: any, i: number) => (
+                  <div key={i} className="border rounded-lg p-3">
+                    <div className="flex justify-between"><p className="font-medium">{c.condition}</p><Badge>{c.likelihood}</Badge></div>
+                    <p className="text-sm text-gray-600">{c.description}</p>
+                  </div>
+                ))}
+                {symptomResult.emergencyIndicators && symptomResult.emergencyIndicators.length > 0 && (
+                  <div className="bg-red-50 rounded-lg p-3">
+                    <p className="font-medium text-red-800 mb-1">Emergency Indicators</p>
+                    <ul className="text-sm text-red-700">{symptomResult.emergencyIndicators.map((e: string, i: number) => <li key={i}>• {e}</li>)}</ul>
+                  </div>
+                )}
+                <p className="text-xs text-gray-400 italic">AI-generated guidance. Seek veterinary care for urgent/emergency cases.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* AI Drug Interaction Checker */}
+      <div className="grid gap-6 lg:grid-cols-2" id="vet-drug-interaction">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-purple-500" />
+              AI Drug Interaction Checker
+            </CardTitle>
+            <CardDescription>Check for veterinary medication interactions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Species *</Label>
+              <Select value={drugSpecies} onValueChange={setDrugSpecies}>
+                <SelectTrigger><SelectValue placeholder="Select species" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Dog">Dog</SelectItem>
+                  <SelectItem value="Cat">Cat</SelectItem>
+                  <SelectItem value="Bird">Bird</SelectItem>
+                  <SelectItem value="Rabbit">Rabbit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Medications *</Label>
+              <Textarea value={drugMedications} onChange={(e) => setDrugMedications(e.target.value)} placeholder="List all medications (one per line or comma-separated)" rows={3} />
+            </div>
+            <div>
+              <Label>Weight (kg)</Label>
+              <Input value={drugWeight} onChange={(e) => setDrugWeight(e.target.value)} placeholder="Animal weight for dosage checks" />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleDrugInteraction} disabled={loading === 'drug'} className="flex-1">
+                {loading === 'drug' ? <><Clock className="h-4 w-4 mr-2 animate-spin" /> Checking...</> : <><Sparkles className="h-4 w-4 mr-2" /> Check Interactions</>}
+              </Button>
+              <Button variant="outline" onClick={() => { setDrugSpecies('Dog'); setDrugMedications('Carprofen 75mg, Gabapentin 100mg, Prednisone 10mg'); setDrugWeight('25'); setDrugResult(null); toast.success('Example loaded!') }}>
+                Load Example
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Interaction Analysis</CardTitle></CardHeader>
+          <CardContent>
+            {!drugResult ? (
+              <p className="text-gray-400 text-center py-8">Enter medications to check for interactions</p>
+            ) : (
+              <div className="space-y-4">
+                {drugResult.overallRisk && (
+                  <div className={`rounded-lg p-3 font-medium ${drugResult.overallRisk.toLowerCase().includes('high') || drugResult.overallRisk.toLowerCase().includes('contraindicated') ? 'bg-red-100 text-red-800' : drugResult.overallRisk.toLowerCase().includes('moderate') ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                    Overall Risk: {drugResult.overallRisk}
+                  </div>
+                )}
+                {drugResult.interactions && drugResult.interactions.map((int: any, i: number) => (
+                  <div key={i} className="border rounded-lg p-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="font-medium text-sm">{int.drug1} + {int.drug2}</p>
+                      <Badge className={int.riskLevel?.toLowerCase().includes('high') ? 'bg-red-100 text-red-800' : int.riskLevel?.toLowerCase().includes('moderate') ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}>{int.riskLevel}</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600">{int.description}</p>
+                    {int.recommendation && <p className="text-sm text-blue-600 mt-1">{int.recommendation}</p>}
+                  </div>
+                ))}
+                {drugResult.monitoringRecommendations && drugResult.monitoringRecommendations.length > 0 && (
+                  <div className="bg-blue-50 rounded-lg p-3">
+                    <p className="font-medium text-blue-800 mb-1">Monitoring Recommendations</p>
+                    <ul className="text-sm text-blue-700">{drugResult.monitoringRecommendations.map((m: string, i: number) => <li key={i}>• {m}</li>)}</ul>
+                  </div>
+                )}
+                <p className="text-xs text-gray-400 italic">AI-generated guidance. Always verify with a veterinary pharmacist.</p>
               </div>
             )}
           </CardContent>

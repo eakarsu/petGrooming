@@ -1,5 +1,10 @@
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
+// Strip markdown code blocks (```json ... ``` or ``` ... ```) from AI responses
+function stripCodeBlocks(text: string): string {
+  return text.replace(/^```(?:json|JSON)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim()
+}
+
 interface Message {
   role: 'system' | 'user' | 'assistant'
   content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>
@@ -39,7 +44,7 @@ export async function callOpenRouter(
     body: JSON.stringify({
       model,
       messages,
-      max_tokens: options?.maxTokens || 1024,
+      max_tokens: options?.maxTokens || 10000,
       temperature: options?.temperature || 0.7,
     }),
   })
@@ -51,7 +56,8 @@ export async function callOpenRouter(
   }
 
   const data: OpenRouterResponse = await response.json()
-  return data.choices[0]?.message?.content || ''
+  const content = data.choices[0]?.message?.content || ''
+  return stripCodeBlocks(content)
 }
 
 // Vision-capable function for image analysis
@@ -94,7 +100,7 @@ export async function callOpenRouterVision(
           ]
         }
       ],
-      max_tokens: 1024,
+      max_tokens: 10000,
       temperature: 0.3,
     }),
   })
@@ -106,7 +112,8 @@ export async function callOpenRouterVision(
   }
 
   const data: OpenRouterResponse = await response.json()
-  return data.choices[0]?.message?.content || ''
+  const content = data.choices[0]?.message?.content || ''
+  return stripCodeBlocks(content)
 }
 
 export async function identifyBreed(imageBase64: string): Promise<{
@@ -200,6 +207,9 @@ Respond in JSON format only:
           description: 'Classic breed-appropriate grooming style',
           difficulty: 'Medium',
           maintenanceLevel: 'Medium',
+          bestFor: 'All pet owners',
+          groomingFrequency: 'Every 4-6 weeks',
+          toolsRequired: ['Clippers', 'Scissors', 'Brush'],
         },
       ],
     }
@@ -251,6 +261,8 @@ Respond in JSON format only:
       post: `${petName} the ${breed} is looking fabulous after their ${serviceType}! Fresh, clean, and ready to turn heads!`,
       hashtags: ['PetGrooming', 'DogGrooming', 'FreshlyGroomed', 'PetSpa', 'DogsOfInstagram'],
       platform: 'Instagram',
+      alternativePost: `${petName} looking fabulous after ${serviceType}!`,
+      engagementTip: 'Post during lunch hours for maximum engagement',
     }
   }
 }
@@ -304,6 +316,8 @@ Respond in JSON format only:
       message: `Hi ${clientName}! It's been a while since ${petName}'s last visit. We'd love to see you both again! Book your next appointment with us.`,
       subject: `Time for ${petName}'s grooming appointment!`,
       tone: 'Friendly',
+      smsVersion: `Hi ${clientName}! Time for ${petName}'s grooming. Book now!`,
+      followUpDate: '3 days',
     }
   }
 }
@@ -360,6 +374,8 @@ Respond in JSON format only:
       concerns: [],
       shouldSeeVet: true,
       generalAdvice: 'When in doubt, recommend the pet owner consult with a veterinarian.',
+      breedSpecificNotes: 'Consult breed-specific guidelines for more information.',
+      homeCareTips: ['Keep the area clean', 'Monitor for changes', 'Consult a vet if symptoms persist'],
     }
   }
 }
@@ -415,11 +431,15 @@ Respond in JSON format only:
           service: 'De-shedding Treatment',
           reason: 'Helps reduce shedding and keeps coat healthy',
           priority: 'Medium',
+          benefits: ['Reduces shedding', 'Healthier coat', 'Less cleanup at home'],
+          price: '$20-$35',
         },
         {
           service: 'Teeth Brushing',
           reason: 'Promotes dental health and fresh breath',
           priority: 'Low',
+          benefits: ['Fresh breath', 'Healthy gums', 'Prevents tartar'],
+          price: '$10-$15',
         },
       ],
     }
@@ -556,6 +576,232 @@ Respond ONLY with valid JSON in this exact format (no other text):
   }
 }
 
+// AI Diet Recommender
+export async function recommendDiet(
+  petType: string,
+  breed: string,
+  age: string,
+  weight: number,
+  activityLevel: string,
+  healthConditions?: string,
+  currentDiet?: string
+): Promise<{
+  recommendations: Array<{
+    category: string
+    suggestion: string
+    benefits: string[]
+    brands?: string[]
+    frequency: string
+    portionSize: string
+  }>
+  dailyCalories: number
+  hydrationTips: string[]
+  supplementsNeeded: string[]
+  foodsToAvoid: string[]
+  feedingSchedule: {
+    mealsPerDay: number
+    bestTimes: string[]
+    tips: string[]
+  }
+  specialConsiderations: string
+}> {
+  const prompt = `You are a certified pet nutritionist with 20 years of experience. Create a comprehensive diet recommendation for:
+
+Pet Type: ${petType}
+Breed: ${breed}
+Age: ${age}
+Weight: ${weight} lbs
+Activity Level: ${activityLevel}
+${healthConditions ? `Health Conditions: ${healthConditions}` : ''}
+${currentDiet ? `Current Diet: ${currentDiet}` : ''}
+
+Provide detailed, breed-specific nutritional advice. Consider the pet's age, weight, activity level, and any health conditions.
+
+Respond ONLY with valid JSON in this exact format (no other text):
+{
+  "recommendations": [
+    {
+      "category": "Main Food/Protein/Treats/Supplements",
+      "suggestion": "Detailed recommendation (2-3 sentences)",
+      "benefits": ["Benefit 1", "Benefit 2", "Benefit 3"],
+      "brands": ["Recommended brand 1", "Recommended brand 2"],
+      "frequency": "How often to give this",
+      "portionSize": "Recommended portion size"
+    }
+  ],
+  "dailyCalories": 800,
+  "hydrationTips": ["Tip 1", "Tip 2", "Tip 3"],
+  "supplementsNeeded": ["Supplement 1 with reason", "Supplement 2 with reason"],
+  "foodsToAvoid": ["Food 1 with reason", "Food 2 with reason"],
+  "feedingSchedule": {
+    "mealsPerDay": 2,
+    "bestTimes": ["7:00 AM", "6:00 PM"],
+    "tips": ["Feeding tip 1", "Feeding tip 2"]
+  },
+  "specialConsiderations": "Any breed-specific or condition-specific dietary notes"
+}`
+
+  const response = await callOpenRouter([
+    { role: 'system', content: 'You are a certified pet nutritionist. Always respond with valid JSON only.' },
+    { role: 'user', content: prompt },
+  ])
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0])
+    }
+    return JSON.parse(response)
+  } catch {
+    return {
+      recommendations: [
+        {
+          category: 'Main Food',
+          suggestion: 'High-quality protein-based diet appropriate for age and size',
+          benefits: ['Supports muscle health', 'Provides essential nutrients'],
+          frequency: 'Twice daily',
+          portionSize: 'Based on weight and activity level',
+        },
+      ],
+      dailyCalories: 800,
+      hydrationTips: ['Always provide fresh water', 'Change water daily'],
+      supplementsNeeded: [],
+      foodsToAvoid: ['Chocolate', 'Grapes', 'Onions'],
+      feedingSchedule: {
+        mealsPerDay: 2,
+        bestTimes: ['Morning', 'Evening'],
+        tips: ['Maintain consistent feeding times'],
+      },
+      specialConsiderations: 'Consult with a veterinarian for personalized advice.',
+    }
+  }
+}
+
+// AI Behavior Analyzer
+export async function analyzeBehavior(
+  petType: string,
+  breed: string,
+  age: string,
+  behaviorDescription: string,
+  context?: string,
+  frequency?: string
+): Promise<{
+  analysis: {
+    behaviorType: string
+    severity: string
+    possibleCauses: string[]
+    isNormal: boolean
+    breedTypical: boolean
+  }
+  recommendations: Array<{
+    approach: string
+    description: string
+    difficulty: string
+    timeToResult: string
+    steps: string[]
+  }>
+  trainingTips: Array<{
+    tip: string
+    importance: string
+    category: string
+  }>
+  environmentalChanges: string[]
+  professionalHelpNeeded: boolean
+  professionalHelpReason?: string
+  positiveReinforcement: string[]
+  warningSignsToWatch: string[]
+  expectedOutcome: string
+}> {
+  const prompt = `You are a certified animal behaviorist with 20 years of experience working with pets. Analyze the following behavior:
+
+Pet Type: ${petType}
+Breed: ${breed}
+Age: ${age}
+Behavior Description: ${behaviorDescription}
+${context ? `Context/Situation: ${context}` : ''}
+${frequency ? `How often this occurs: ${frequency}` : ''}
+
+Provide a comprehensive behavioral analysis with actionable recommendations. Consider breed-specific tendencies and age-appropriate expectations.
+
+Respond ONLY with valid JSON in this exact format (no other text):
+{
+  "analysis": {
+    "behaviorType": "Category of behavior (e.g., Anxiety, Aggression, Fear, Attention-seeking)",
+    "severity": "Low/Medium/High",
+    "possibleCauses": ["Cause 1", "Cause 2", "Cause 3"],
+    "isNormal": true/false,
+    "breedTypical": true/false
+  },
+  "recommendations": [
+    {
+      "approach": "Training/Management/Environmental Modification",
+      "description": "Detailed explanation of the approach (2-3 sentences)",
+      "difficulty": "Easy/Medium/Hard",
+      "timeToResult": "Expected time to see improvement",
+      "steps": ["Step 1", "Step 2", "Step 3"]
+    }
+  ],
+  "trainingTips": [
+    {
+      "tip": "Specific training tip",
+      "importance": "High/Medium/Low",
+      "category": "Basic Training/Behavior Modification/Socialization"
+    }
+  ],
+  "environmentalChanges": ["Environmental change 1", "Environmental change 2"],
+  "professionalHelpNeeded": true/false,
+  "professionalHelpReason": "Reason why professional help might be needed (if applicable)",
+  "positiveReinforcement": ["Reward method 1", "Reward method 2"],
+  "warningSignsToWatch": ["Sign 1", "Sign 2"],
+  "expectedOutcome": "What to expect with consistent training"
+}`
+
+  const response = await callOpenRouter([
+    { role: 'system', content: 'You are a certified animal behaviorist. Always respond with valid JSON only.' },
+    { role: 'user', content: prompt },
+  ])
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0])
+    }
+    return JSON.parse(response)
+  } catch {
+    return {
+      analysis: {
+        behaviorType: 'Unknown',
+        severity: 'Medium',
+        possibleCauses: ['Unable to determine without more information'],
+        isNormal: false,
+        breedTypical: false,
+      },
+      recommendations: [
+        {
+          approach: 'Observation',
+          description: 'Monitor the behavior and note any patterns or triggers',
+          difficulty: 'Easy',
+          timeToResult: '1-2 weeks',
+          steps: ['Observe when behavior occurs', 'Note any triggers', 'Track frequency'],
+        },
+      ],
+      trainingTips: [
+        {
+          tip: 'Use positive reinforcement',
+          importance: 'High',
+          category: 'Basic Training',
+        },
+      ],
+      environmentalChanges: ['Ensure a calm environment'],
+      professionalHelpNeeded: true,
+      professionalHelpReason: 'Recommend consulting a professional for proper diagnosis',
+      positiveReinforcement: ['Treats', 'Praise', 'Play'],
+      warningSignsToWatch: ['Escalation of behavior', 'Aggression'],
+      expectedOutcome: 'Improvement varies; professional guidance recommended',
+    }
+  }
+}
+
 export async function analyzePhotoForEnhancement(imageBase64: string): Promise<{
   qualityScore: number
   overallAssessment: string
@@ -615,6 +861,181 @@ Respond ONLY with valid JSON in this exact format (no other text):
       ],
       suggestedCaption: 'Looking adorable!',
       hashtags: ['PetPhoto', 'CutePet', 'PetGrooming', 'FurryFriend', 'PetLove'],
+    }
+  }
+}
+
+// ============== VETERINARY AI TOOLS ==============
+
+export async function veterinaryDiagnosis(
+  species: string, breed: string, age: string, symptoms: string, history?: string
+): Promise<{
+  diagnoses: Array<{ condition: string; likelihood: string; description: string }>
+  recommendedTests: string[]
+  urgencyLevel: string
+  additionalNotes: string
+}> {
+  const prompt = `Patient: ${species}${breed ? `, ${breed}` : ''}, ${age || 'unknown age'}
+Symptoms: ${symptoms}
+${history ? `Medical History: ${history}` : ''}
+
+Provide differential diagnoses and recommendations.
+
+Respond ONLY with valid JSON:
+{
+  "diagnoses": [{ "condition": "Name", "likelihood": "High/Medium/Low (X%)", "description": "Brief explanation" }],
+  "recommendedTests": ["Test 1", "Test 2"],
+  "urgencyLevel": "Low/Medium/High/Critical",
+  "additionalNotes": "Any additional guidance"
+}`
+
+  const response = await callOpenRouter([
+    { role: 'system', content: 'You are an expert veterinary diagnostician. Provide detailed differential diagnoses based on symptoms. Include likelihood percentages, recommended diagnostic tests, and urgency level. Always respond with valid JSON.' },
+    { role: 'user', content: prompt },
+  ])
+
+  try {
+    const match = response.match(/\{[\s\S]*\}/)
+    return match ? JSON.parse(match[0]) : JSON.parse(response)
+  } catch {
+    return {
+      diagnoses: [{ condition: 'Unable to determine', likelihood: 'N/A', description: 'Please provide more symptoms for analysis' }],
+      recommendedTests: ['Complete Blood Count', 'Physical Examination'],
+      urgencyLevel: 'Medium',
+      additionalNotes: 'Consult a veterinarian for proper diagnosis.',
+    }
+  }
+}
+
+export async function veterinaryTreatment(
+  species: string, breed: string, age: string, weight: string, diagnosis: string, currentMedications?: string
+): Promise<{
+  treatmentPlan: string
+  medications: Array<{ name: string; dosage: string; frequency: string; duration: string; notes: string }>
+  procedures: string[]
+  dietRecommendations: string[]
+  followUpSchedule: string
+  prognosis: string
+}> {
+  const prompt = `Patient: ${species}${breed ? `, ${breed}` : ''}, ${age || 'unknown age'}, ${weight ? weight + ' kg' : 'unknown weight'}
+Diagnosis: ${diagnosis}
+${currentMedications ? `Current Medications: ${currentMedications}` : ''}
+
+Provide a detailed treatment plan.
+
+Respond ONLY with valid JSON:
+{
+  "treatmentPlan": "Overview of treatment approach",
+  "medications": [{ "name": "Med name", "dosage": "Amount", "frequency": "How often", "duration": "How long", "notes": "Special instructions" }],
+  "procedures": ["Procedure 1"],
+  "dietRecommendations": ["Diet tip 1"],
+  "followUpSchedule": "When to follow up",
+  "prognosis": "Expected outcome"
+}`
+
+  const response = await callOpenRouter([
+    { role: 'system', content: 'You are an expert veterinary treatment specialist. Provide comprehensive treatment plans including medications with dosages, procedures, and follow-up care. Always note weight-based dose adjustments. Respond with valid JSON.' },
+    { role: 'user', content: prompt },
+  ])
+
+  try {
+    const match = response.match(/\{[\s\S]*\}/)
+    return match ? JSON.parse(match[0]) : JSON.parse(response)
+  } catch {
+    return {
+      treatmentPlan: 'Consult a veterinarian for a proper treatment plan.',
+      medications: [],
+      procedures: ['Physical examination'],
+      dietRecommendations: ['Maintain current diet unless advised otherwise'],
+      followUpSchedule: '1-2 weeks',
+      prognosis: 'Varies - professional evaluation recommended',
+    }
+  }
+}
+
+export async function symptomChecker(
+  species: string, symptoms: string, duration?: string, severity?: string
+): Promise<{
+  symptomAnalysis: string
+  possibleConditions: Array<{ condition: string; likelihood: string; description: string }>
+  urgencyAssessment: { level: string; color: string; description: string }
+  recommendedActions: string[]
+  emergencyIndicators: string[]
+}> {
+  const prompt = `Species: ${species}
+Symptoms: ${symptoms}
+Duration: ${duration || 'not specified'}
+Severity: ${severity || 'not specified'}
+
+Analyze these symptoms.
+
+Respond ONLY with valid JSON:
+{
+  "symptomAnalysis": "Overview of the symptom presentation",
+  "possibleConditions": [{ "condition": "Name", "likelihood": "High/Medium/Low", "description": "Brief explanation" }],
+  "urgencyAssessment": { "level": "Routine/Soon/Urgent/Emergency", "color": "Green/Yellow/Orange/Red", "description": "What this means" },
+  "recommendedActions": ["Action 1", "Action 2"],
+  "emergencyIndicators": ["Sign that requires immediate vet visit"]
+}`
+
+  const response = await callOpenRouter([
+    { role: 'system', content: 'You are a veterinary symptom analysis expert. Analyze symptoms and provide possible conditions, urgency assessment with color codes (Green=routine, Yellow=soon, Orange=urgent, Red=emergency), and recommended next steps. Always recommend professional examination. Respond with valid JSON.' },
+    { role: 'user', content: prompt },
+  ])
+
+  try {
+    const match = response.match(/\{[\s\S]*\}/)
+    return match ? JSON.parse(match[0]) : JSON.parse(response)
+  } catch {
+    return {
+      symptomAnalysis: 'Unable to fully analyze. Please consult a veterinarian.',
+      possibleConditions: [],
+      urgencyAssessment: { level: 'Soon', color: 'Yellow', description: 'Schedule a veterinary visit soon' },
+      recommendedActions: ['Consult a veterinarian'],
+      emergencyIndicators: ['Difficulty breathing', 'Severe bleeding', 'Collapse'],
+    }
+  }
+}
+
+export async function drugInteractionChecker(
+  species: string, medications: string, weight?: string
+): Promise<{
+  overallRisk: string
+  interactions: Array<{ drug1: string; drug2: string; riskLevel: string; description: string; recommendation: string }>
+  dosageConsiderations: string[]
+  alternativeMedications: string[]
+  monitoringRecommendations: string[]
+}> {
+  const prompt = `Species: ${species}
+Medications: ${medications}
+${weight ? `Weight: ${weight} kg` : ''}
+
+Check for drug interactions and provide recommendations.
+
+Respond ONLY with valid JSON:
+{
+  "overallRisk": "None/Low/Moderate/High/Contraindicated",
+  "interactions": [{ "drug1": "Med A", "drug2": "Med B", "riskLevel": "Low/Moderate/High", "description": "What happens", "recommendation": "What to do" }],
+  "dosageConsiderations": ["Consideration 1"],
+  "alternativeMedications": ["Alternative 1"],
+  "monitoringRecommendations": ["Monitor for X"]
+}`
+
+  const response = await callOpenRouter([
+    { role: 'system', content: 'You are a veterinary pharmacology expert. Analyze drug interactions for veterinary medications. Include species-specific warnings. Respond with valid JSON.' },
+    { role: 'user', content: prompt },
+  ])
+
+  try {
+    const match = response.match(/\{[\s\S]*\}/)
+    return match ? JSON.parse(match[0]) : JSON.parse(response)
+  } catch {
+    return {
+      overallRisk: 'Unknown',
+      interactions: [],
+      dosageConsiderations: ['Consult a veterinary pharmacist'],
+      alternativeMedications: [],
+      monitoringRecommendations: ['Monitor for adverse reactions'],
     }
   }
 }

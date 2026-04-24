@@ -97,6 +97,10 @@ model Pet {
   healthAlerts      HealthAlert[]
   groomingPreferences GroomingPreference?
   reminderHistory   ReminderHistory[]
+  medicalRecords    MedicalRecord[]
+  prescriptions     Prescription[]
+  labResults        LabResult[]
+  surgeries         Surgery[]
 
   @@index([clientId])
   @@index([breedId])
@@ -690,6 +694,18 @@ model BusinessSettings {
   updatedAt       DateTime  @updatedAt
 }
 
+// ============== PASSWORD RESET ==============
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+}
+
 // ============== REMINDER HISTORY ==============
 model ReminderHistory {
   id              String    @id @default(cuid())
@@ -705,4 +721,101 @@ model ReminderHistory {
   @@index([petId])
   @@index([clientId])
   @@index([sentAt])
+}
+
+// ============== VETERINARY CLINICAL MANAGEMENT ==============
+enum PrescriptionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum LabStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum SurgeryStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model MedicalRecord {
+  id              String    @id @default(cuid())
+  petId           String
+  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vetName         String
+  recordDate      DateTime
+  diagnosis       String
+  symptoms        String
+  treatment       String
+  followUp        String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([petId])
+}
+
+model Prescription {
+  id              String             @id @default(cuid())
+  petId           String
+  pet             Pet                @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vetName         String
+  medication      String
+  dosage          String
+  frequency       String
+  duration        String
+  prescribedDate  DateTime
+  status          PrescriptionStatus @default(ACTIVE)
+  instructions    String?
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([petId])
+  @@index([status])
+}
+
+model LabResult {
+  id              String    @id @default(cuid())
+  petId           String
+  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  testName        String
+  testType        String
+  testDate        DateTime
+  results         String
+  normalRange     String?
+  status          LabStatus @default(PENDING)
+  orderedBy       String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([petId])
+  @@index([status])
+}
+
+model Surgery {
+  id              String        @id @default(cuid())
+  petId           String
+  pet             Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
+  surgeonName     String
+  surgeryDate     DateTime
+  surgeryType     String
+  anesthesiaType  String?
+  duration        String?
+  status          SurgeryStatus @default(SCHEDULED)
+  preOpNotes      String?
+  postOpNotes     String?
+  complications   String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([petId])
+  @@index([status])
 }

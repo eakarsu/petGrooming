@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 const loginSchema = z.object({
@@ -111,6 +112,14 @@ export default function LoginPage() {
             <div className="text-center text-xs text-gray-400">
               <p>admin@petgroom.com / password123</p>
             </div>
+          </div>
+          <div className="mt-4 flex items-center justify-between text-sm">
+            <Link href="/auth/forgot-password" className="text-primary-600 hover:underline">
+              Forgot Password?
+            </Link>
+            <Link href="/auth/register" className="text-primary-600 hover:underline">
+              Create Account
+            </Link>
           </div>
         </CardContent>
       </Card>

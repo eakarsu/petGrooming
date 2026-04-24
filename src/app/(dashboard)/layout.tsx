@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { PageLoading } from '@/components/ui/loading'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
@@ -24,5 +25,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return null
   }
 
-  return <MainLayout>{children}</MainLayout>
+  return (
+    <MainLayout>
+      <ErrorBoundary>{children}</ErrorBoundary>
+    </MainLayout>
+  )
 }

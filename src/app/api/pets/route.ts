@@ -43,6 +43,12 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    const sortBy = searchParams.get('sortBy') || 'createdAt'
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
+
+    const orderBy: any = {}
+    orderBy[sortBy] = sortOrder
+
     const [pets, total] = await Promise.all([
       db.pet.findMany({
         where,
@@ -57,7 +63,7 @@ export async function GET(request: NextRequest) {
             select: { groomingHistory: true },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take: limit,
       }),

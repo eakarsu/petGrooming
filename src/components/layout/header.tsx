@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { Bell, Search, Menu } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -13,6 +14,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { getInitials } from '@/lib/utils'
 import { signOut } from 'next-auth/react'
 import Link from 'next/link'
@@ -23,6 +32,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { data: session } = useSession()
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
@@ -76,7 +86,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={session?.user?.image || ''} />
+                <AvatarImage src={(session?.user as any)?.image || ''} />
                 <AvatarFallback>{getInitials(session?.user?.name || 'User')}</AvatarFallback>
               </Avatar>
               <span className="hidden md:inline">{session?.user?.name}</span>
@@ -92,12 +102,32 @@ export function Header({ onMenuClick }: HeaderProps) {
               <Link href="/settings">Settings</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/auth/login' })}>
+            <DropdownMenuItem onClick={() => setLogoutDialogOpen(true)}>
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign Out</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to sign out? You will need to sign in again to access the app.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLogoutDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => signOut({ callbackUrl: '/auth/login' })}>
+              Sign Out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   )
 }

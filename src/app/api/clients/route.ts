@@ -36,6 +36,12 @@ export async function GET(request: NextRequest) {
         }
       : { isActive: true }
 
+    const sortBy = searchParams.get('sortBy') || 'createdAt'
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
+
+    const orderBy: any = {}
+    orderBy[sortBy] = sortOrder
+
     const [clients, total] = await Promise.all([
       db.client.findMany({
         where,
@@ -48,7 +54,7 @@ export async function GET(request: NextRequest) {
             select: { appointments: true },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take: limit,
       }),

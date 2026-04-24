@@ -821,6 +821,11 @@ async function main() {
     prisma.giftCard.upsert({ where: { code: 'GIFT-008-VWX' }, update: {}, create: { code: 'GIFT-008-VWX', initialBalance: 200, currentBalance: 120, clientId: clients[8].id, expiresAt: new Date('2025-12-31') } }),
     prisma.giftCard.upsert({ where: { code: 'GIFT-009-YZA' }, update: {}, create: { code: 'GIFT-009-YZA', initialBalance: 75, currentBalance: 75, clientId: clients[9].id, expiresAt: new Date('2025-12-31') } }),
     prisma.giftCard.upsert({ where: { code: 'GIFT-010-BCD' }, update: {}, create: { code: 'GIFT-010-BCD', initialBalance: 50, currentBalance: 50, clientId: clients[10].id, expiresAt: new Date('2025-12-31') } }),
+    prisma.giftCard.upsert({ where: { code: 'GIFT-011-EFG' }, update: {}, create: { code: 'GIFT-011-EFG', initialBalance: 100, currentBalance: 80, clientId: clients[11].id, expiresAt: new Date('2026-06-30') } }),
+    prisma.giftCard.upsert({ where: { code: 'GIFT-012-HIJ' }, update: {}, create: { code: 'GIFT-012-HIJ', initialBalance: 75, currentBalance: 75, clientId: clients[12].id, expiresAt: new Date('2026-06-30') } }),
+    prisma.giftCard.upsert({ where: { code: 'GIFT-013-KLM' }, update: {}, create: { code: 'GIFT-013-KLM', initialBalance: 200, currentBalance: 200, clientId: clients[13].id, expiresAt: new Date('2026-12-31') } }),
+    prisma.giftCard.upsert({ where: { code: 'GIFT-014-NOP' }, update: {}, create: { code: 'GIFT-014-NOP', initialBalance: 50, currentBalance: 25, clientId: clients[14].id, expiresAt: new Date('2026-06-30') } }),
+    prisma.giftCard.upsert({ where: { code: 'GIFT-015-QRS' }, update: {}, create: { code: 'GIFT-015-QRS', initialBalance: 150, currentBalance: 100, clientId: clients[15].id, expiresAt: new Date('2026-12-31') } }),
   ])
   console.log('Created gift cards:', giftCards.length)
 
@@ -928,6 +933,17 @@ async function main() {
   console.log('Created reminder history:', reminderHistory.length)
 
   // ==========================================
+  // PASSWORD RESET TOKENS (sample for testing)
+  // ==========================================
+  await prisma.passwordResetToken.deleteMany({})
+  const passwordResetTokens = await Promise.all([
+    prisma.passwordResetToken.create({ data: { email: 'admin@petgroom.com', token: 'test-reset-token-001', expiresAt: new Date(Date.now() + 60 * 60 * 1000) } }),
+    prisma.passwordResetToken.create({ data: { email: 'sarah@petgroom.com', token: 'test-reset-token-002', expiresAt: new Date(Date.now() + 60 * 60 * 1000) } }),
+    prisma.passwordResetToken.create({ data: { email: 'mike@petgroom.com', token: 'test-reset-token-003', expiresAt: new Date(Date.now() - 60 * 60 * 1000) } }),
+  ])
+  console.log('Created password reset tokens:', passwordResetTokens.length)
+
+  // ==========================================
   // BUSINESS SETTINGS
   // ==========================================
   await prisma.businessSettings.upsert({
@@ -984,6 +1000,7 @@ async function main() {
   console.log(`  - Emergency Contacts: ${emergencyContacts.length}`)
   console.log(`  - Gift Cards: ${giftCards.length}`)
   console.log(`  - Pet Photos: ${petPhotos.length}`)
+  console.log(`  - Password Reset Tokens: ${passwordResetTokens.length}`)
   console.log('')
 }
 

@@ -31,7 +31,7 @@ export default function WorkloadPage() {
   const [loading, setLoading] = useState(true)
   const [selectedGroomer, setSelectedGroomer] = useState<string | null>(null)
   const [selectedDayAppointments, setSelectedDayAppointments] = useState<{ groomer: string; date: string; appointments: any[] } | null>(null)
-  const [selectedGroomerDetail, setSelectedGroomerDetail] = useState<typeof data.workload[0] | null>(null)
+  const [selectedGroomerDetail, setSelectedGroomerDetail] = useState<WorkloadData['workload'][0] | null>(null)
 
   useEffect(() => {
     fetchWorkload()
