@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { addDays, subDays, differenceInDays } from 'date-fns'
+import { sendEmail } from '@/lib/email'
+import { sendSMS } from '@/lib/sms'
 
 export async function GET(request: NextRequest) {
   try {
@@ -134,6 +136,36 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { petId, clientId, message, type } = body
 
+    // Fetch client details for delivery
+    const client = await db.client.findUnique({
+      where: { id: clientId },
+      select: { firstName: true, lastName: true, email: true, phone: true },
+    })
+
+    if (!client) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
+    const deliveryResults: string[] = []
+
+    // Send email reminder
+    const emailResult = await sendEmail(
+      client.email,
+      `Reminder from PetGroom Pro`,
+      `<p>Dear ${client.firstName},</p><p>${message}</p><p>— The PetGroom Pro Team</p>`
+    )
+    if (emailResult.success) deliveryResults.push('EMAIL')
+
+    // Send SMS if phone is available
+    let sentVia = 'EMAIL'
+    if (client.phone) {
+      const smsResult = await sendSMS(client.phone, message)
+      if (smsResult.success) {
+        deliveryResults.push('SMS')
+        sentVia = deliveryResults.length > 1 ? 'BOTH' : 'SMS'
+      }
+    }
+
     // Save reminder to history
     const reminder = await db.reminderHistory.create({
       data: {
@@ -141,7 +173,7 @@ export async function POST(request: NextRequest) {
         clientId,
         type: type || 'GENERAL',
         message,
-        sentVia: 'EMAIL', // In a real app, this would depend on user preference
+        sentVia,
         sentAt: new Date(),
       },
       include: {
@@ -150,11 +182,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // In a real app, this would also send an email/SMS here
-
     return NextResponse.json({
       success: true,
-      message: 'Reminder sent successfully',
+      message: `Reminder sent via ${deliveryResults.join(' & ') || 'saved (delivery failed)'}`,
       reminder: {
         id: reminder.id,
         pet: reminder.pet,

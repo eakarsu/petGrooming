@@ -819,3 +819,144 @@ model Surgery {
   @@index([petId])
   @@index([status])
 }
+
+// ============== AI USAGE TRACKING & PER-TENANT KEYS ==============
+model AIUsageLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  feature     String
+  model       String?
+  input       Json?
+  output      Json?
+  error       String?
+  durationMs  Int?
+  tokensIn    Int?
+  tokensOut   Int?
+  costUsd     Float?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([feature])
+  @@index([createdAt])
+}
+
+model TenantAISettings {
+  id                  String   @id @default(cuid())
+  tenantId            String   @unique @default("default")
+  openrouterApiKey    String?  // Encrypted via app-side envelope encryption
+  openrouterModel     String?
+  visionModel         String?
+  monthlyBudgetUsd    Float?
+  alertThresholdPct   Int      @default(80)
+  hardCapEnabled      Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// ============== PRE-VISIT AI INTAKE ==============
+model PreVisitIntake {
+  id              String   @id @default(cuid())
+  appointmentId   String?
+  petId           String?
+  clientPhone     String
+  rawSymptoms     String?
+  rawPhotos       Json     @default("[]") // Array of Cloudinary URLs
+  aiTriageResult  Json?    // Full AI summary
+  urgencyLevel    String?  // ROUTINE / SOON / URGENT / EMERGENCY
+  flaggedForVet   Boolean  @default(false)
+  reviewedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([clientPhone])
+  @@index([appointmentId])
+  @@index([urgencyLevel])
+}
+
+// ============== NO-SHOW PREDICTION ==============
+model NoShowPrediction {
+  id              String   @id @default(cuid())
+  appointmentId   String   @unique
+  riskScore       Float    // 0..1 probability of no-show
+  riskTier        String   // LOW / MEDIUM / HIGH
+  features        Json     // Snapshot of model inputs
+  depositRequired Boolean  @default(false)
+  depositAmount   Float?
+  createdAt       DateTime @default(now())
+
+  @@index([riskTier])
+}
+
+// ============== STYLE PREVIEW (image gen) ==============
+model StylePreview {
+  id              String   @id @default(cuid())
+  petId           String
+  styleName       String
+  beforeImageUrl  String
+  afterImageUrl   String?
+  status          String   @default("PENDING") // PENDING / READY / FAILED
+  errorMsg        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([petId])
+  @@index([status])
+}
+
+// ============== MULTI-PET FAMILY BUNDLE ==============
+model FamilyGroup {
+  id              String   @id @default(cuid())
+  name            String
+  primaryClientId String
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members         FamilyMember[]
+  bundles         BundleSuggestion[]
+}
+
+model FamilyMember {
+  id              String   @id @default(cuid())
+  familyGroupId   String
+  family          FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
+  clientId        String
+  petId           String?
+  createdAt       DateTime @default(now())
+
+  @@index([familyGroupId])
+  @@index([clientId])
+}
+
+model BundleSuggestion {
+  id              String   @id @default(cuid())
+  familyGroupId   String
+  family          FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
+  recommendedServices Json   // Array of {petId, services[], price}
+  totalPrice      Float
+  discountPct     Float
+  reasoning       String?
+  acceptedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([familyGroupId])
+}
+
+// ============== VACCINE/MED REMINDER AGENT ==============
+model VaccineReminderJob {
+  id              String   @id @default(cuid())
+  petId           String
+  vaccinationId   String?
+  prescriptionId  String?
+  reminderType    String   // VACCINE / MEDICATION
+  scheduledFor    DateTime
+  sentAt          DateTime?
+  confirmedAt     DateTime?
+  confirmationReply String?
+  status          String   @default("PENDING") // PENDING / SENT / CONFIRMED / DECLINED / FAILED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([petId])
+  @@index([scheduledFor])
+  @@index([status])
+}

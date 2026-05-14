@@ -1,8 +1,19 @@
+import { parseAIJson } from './ai-helpers'
+
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 // Strip markdown code blocks (```json ... ``` or ``` ... ```) from AI responses
 function stripCodeBlocks(text: string): string {
   return text.replace(/^```(?:json|JSON)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim()
+}
+
+/**
+ * Resilient JSON parser used across all AI helpers.
+ * 3-strategy fallback (raw → stripped fences → first {..last}).
+ */
+export function parseAIResponse<T>(text: string, fallback: T): T {
+  const parsed = parseAIJson<T>(text)
+  return parsed === null ? fallback : parsed
 }
 
 interface Message {
@@ -27,7 +38,7 @@ export async function callOpenRouter(
   }
 ): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY
-  const model = options?.model || process.env.OPENROUTER_MODEL || 'anthropic/claude-3-haiku'
+  const model = options?.model || process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022'
 
   if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY is not configured')
@@ -67,7 +78,7 @@ export async function callOpenRouterVision(
 ): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY
   // Use a vision-capable model
-  const visionModel = process.env.OPENROUTER_VISION_MODEL || 'anthropic/claude-3-haiku'
+  const visionModel = process.env.OPENROUTER_VISION_MODEL || 'anthropic/claude-3-5-sonnet-20241022'
 
   if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY is not configured')
@@ -1036,6 +1047,44 @@ Respond ONLY with valid JSON:
       dosageConsiderations: ['Consult a veterinary pharmacist'],
       alternativeMedications: [],
       monitoringRecommendations: ['Monitor for adverse reactions'],
+    }
+  }
+}
+
+export async function assessCoatCondition(imageBase64: string): Promise<{
+  overallCondition: string
+  matting: string
+  shedding: string
+  skinIssues: string[]
+  recommendedServices: string[]
+  productSuggestions: string[]
+  notes: string
+}> {
+  const prompt = `Look at this dog/cat coat photo and provide a structured grooming-focused assessment.
+
+Respond ONLY with valid JSON:
+{
+  "overallCondition": "Excellent/Good/Fair/Poor",
+  "matting": "None/Light/Moderate/Severe",
+  "shedding": "Low/Moderate/High",
+  "skinIssues": ["..."],
+  "recommendedServices": ["..."],
+  "productSuggestions": ["..."],
+  "notes": "1-2 sentences"
+}`
+
+  try {
+    const content = await callOpenRouterVision(imageBase64, prompt)
+    return JSON.parse(content)
+  } catch {
+    return {
+      overallCondition: 'Unknown',
+      matting: 'Unknown',
+      shedding: 'Unknown',
+      skinIssues: [],
+      recommendedServices: ['Standard groom'],
+      productSuggestions: [],
+      notes: 'Unable to assess from photo. Please consult a groomer in person.',
     }
   }
 }

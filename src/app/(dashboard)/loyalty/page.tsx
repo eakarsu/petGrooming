@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Gift, Trophy, Star, Search, Package, CreditCard, TrendingUp, User, PawPrint, Calendar, X, Clock, DollarSign } from 'lucide-react'
+import { Gift, Trophy, Star, Search, Package, CreditCard, TrendingUp, User, PawPrint, Calendar, X, Clock, DollarSign, CheckCircle, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
+import toast from 'react-hot-toast'
 
 interface TierInfo {
   name: string
@@ -51,6 +52,12 @@ export default function LoyaltyPage() {
   const [selectedClient, setSelectedClient] = useState<ClientWithTier | null>(null)
   const [selectedPackage, setSelectedPackage] = useState<PackageInfo | null>(null)
 
+  // Redeem points state
+  const [showRedeemDialog, setShowRedeemDialog] = useState(false)
+  const [redeemClient, setRedeemClient] = useState<ClientWithTier | null>(null)
+  const [redeemPoints, setRedeemPoints] = useState('')
+  const [redeemLoading, setRedeemLoading] = useState(false)
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -73,6 +80,41 @@ export default function LoyaltyPage() {
       console.error('Failed to fetch data:', error)
     }
     setLoading(false)
+  }
+
+  const handleRedeemPoints = async () => {
+    if (!redeemClient) return
+    const pts = parseInt(redeemPoints, 10)
+    if (!pts || pts <= 0) {
+      toast.error('Enter a valid number of points to redeem')
+      return
+    }
+    if (pts > redeemClient.loyaltyPoints) {
+      toast.error('Not enough points')
+      return
+    }
+    setRedeemLoading(true)
+    try {
+      const res = await fetch('/api/loyalty/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: redeemClient.id, points: pts }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? 'Redemption failed')
+      } else {
+        toast.success(data.message)
+        setShowRedeemDialog(false)
+        setRedeemPoints('')
+        setRedeemClient(null)
+        setSelectedClient(null)
+        fetchData()
+      }
+    } catch {
+      toast.error('Network error — please try again')
+    }
+    setRedeemLoading(false)
   }
 
   const filteredClients = clients.filter(client => {
@@ -403,6 +445,19 @@ export default function LoyaltyPage() {
             <Button variant="outline" onClick={() => setSelectedClient(null)}>
               Close
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (selectedClient) {
+                  setRedeemClient(selectedClient)
+                  setShowRedeemDialog(true)
+                }
+              }}
+              disabled={!selectedClient || selectedClient.loyaltyPoints <= 0}
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Redeem Points
+            </Button>
             <Button onClick={() => {
               if (selectedClient) {
                 router.push(`/clients/${selectedClient.id}`)
@@ -412,6 +467,58 @@ export default function LoyaltyPage() {
               View Full Profile
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Redeem Points Dialog */}
+      <Dialog open={showRedeemDialog} onOpenChange={(open) => { if (!open) { setShowRedeemDialog(false); setRedeemPoints('') } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary-600" />
+              Redeem Points
+            </DialogTitle>
+          </DialogHeader>
+          {redeemClient && (
+            <div className="space-y-4">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-500">Client</p>
+                <p className="font-semibold">{redeemClient.firstName} {redeemClient.lastName}</p>
+                <p className="text-sm text-gray-500 mt-1">Available Points</p>
+                <p className="text-2xl font-bold text-primary-700">{redeemClient.loyaltyPoints}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Points to Redeem
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  max={redeemClient.loyaltyPoints}
+                  placeholder={`1 – ${redeemClient.loyaltyPoints}`}
+                  value={redeemPoints}
+                  onChange={(e) => setRedeemPoints(e.target.value)}
+                />
+                {redeemPoints && parseInt(redeemPoints) > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Value: ${(parseInt(redeemPoints) * 0.01).toFixed(2)} (at $0.01/pt)
+                  </p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => { setShowRedeemDialog(false); setRedeemPoints('') }}
+                  disabled={redeemLoading}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleRedeemPoints} disabled={redeemLoading || !redeemPoints}>
+                  {redeemLoading ? 'Processing...' : 'Confirm Redeem'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { uploadImage } from '@/lib/cloudinary'
 
 export async function GET(request: NextRequest) {
   try {
@@ -79,13 +80,63 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { petId, url, caption, isBefore, isAfter, sessionId } = body
+    const contentType = request.headers.get('content-type') ?? ''
+
+    let photoUrl: string
+    let petId: string
+    let caption: string | undefined
+    let isBefore = false
+    let isAfter = false
+    let sessionId: string | undefined
+
+    if (contentType.includes('multipart/form-data')) {
+      // Handle binary file upload — store in Cloudinary
+      const formData = await request.formData()
+      const file = formData.get('file') as File | null
+
+      if (!file) {
+        return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      }
+
+      petId = (formData.get('petId') as string) ?? ''
+      caption = (formData.get('caption') as string) ?? undefined
+      isBefore = formData.get('isBefore') === 'true'
+      isAfter = formData.get('isAfter') === 'true'
+      sessionId = (formData.get('sessionId') as string) ?? undefined
+
+      if (!petId) {
+        return NextResponse.json({ error: 'petId is required' }, { status: 400 })
+      }
+
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      const filename = `pet-${petId}-${Date.now()}`
+
+      const result = await uploadImage(buffer, filename)
+
+      if (!result.success || !result.url) {
+        return NextResponse.json(
+          { error: result.error ?? 'Image upload failed' },
+          { status: 500 }
+        )
+      }
+
+      photoUrl = result.url
+    } else {
+      // Legacy JSON path (url already provided)
+      const body = await request.json()
+      ;({ petId, caption, isBefore, isAfter, sessionId } = body)
+      photoUrl = body.url
+
+      if (!photoUrl) {
+        return NextResponse.json({ error: 'url is required' }, { status: 400 })
+      }
+    }
 
     const photo = await db.petPhoto.create({
       data: {
         petId,
-        url,
+        url: photoUrl,
         caption,
         isBefore: isBefore || false,
         isAfter: isAfter || false,

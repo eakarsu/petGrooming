@@ -1,25 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { suggestGroomingStyles } from '@/lib/openrouter'
+import { withAI } from '@/lib/ai-route-wrapper'
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { breed, coatType, preferences } = body
-
-    if (!breed) {
-      return NextResponse.json(
-        { error: 'Breed is required' },
-        { status: 400 }
-      )
-    }
-
-    const result = await suggestGroomingStyles(breed, coatType, preferences)
-    return NextResponse.json(result)
-  } catch (error) {
-    console.error('Style suggestion error:', error)
-    return NextResponse.json(
-      { error: 'Failed to suggest styles' },
-      { status: 500 }
-    )
-  }
-}
+export const POST = withAI<{ breed: string; coatType?: string; preferences?: string }>(
+  'style-suggest',
+  async (_req, _ctx, body) => {
+    if (!body.breed) throw new Error('Breed is required')
+    return await suggestGroomingStyles(body.breed, body.coatType, body.preferences)
+  },
+)

@@ -1,25 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { estimateAppointment } from '@/lib/openrouter'
+import { withAI } from '@/lib/ai-route-wrapper'
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { breed, petSize, serviceType, coatCondition } = body
-
-    if (!breed || !petSize || !serviceType) {
-      return NextResponse.json(
-        { error: 'Breed, pet size, and service type are required' },
-        { status: 400 }
-      )
+export const POST = withAI<{ breed: string; petSize: string; serviceType: string; coatCondition?: string }>(
+  'appointment-estimate',
+  async (_req, _ctx, body) => {
+    if (!body.breed || !body.petSize || !body.serviceType) {
+      throw new Error('Breed, pet size, and service type are required')
     }
-
-    const result = await estimateAppointment(breed, petSize, serviceType, coatCondition)
-    return NextResponse.json(result)
-  } catch (error) {
-    console.error('Appointment estimate error:', error)
-    return NextResponse.json(
-      { error: 'Failed to estimate appointment' },
-      { status: 500 }
-    )
-  }
-}
+    return await estimateAppointment(body.breed, body.petSize, body.serviceType, body.coatCondition)
+  },
+)

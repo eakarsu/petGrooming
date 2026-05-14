@@ -22,6 +22,7 @@ import {
   Bell,
   BarChart3,
   Stethoscope,
+  CreditCard,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import {
@@ -48,8 +49,10 @@ const navigation = [
   { name: 'Veterinary', href: '/veterinary', icon: Stethoscope },
   { name: 'Health & Safety', href: '/health', icon: Heart },
   { name: 'Loyalty', href: '/loyalty', icon: Gift },
+  { name: 'Gift Cards', href: '/gift-cards', icon: CreditCard },
   { name: 'Reminders', href: '/reminders', icon: Bell },
   { name: 'AI Features', href: '/ai', icon: Sparkles },
+  { name: 'Coat Condition', href: '/coat-condition', icon: Camera },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 

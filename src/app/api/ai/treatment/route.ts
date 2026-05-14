@@ -1,15 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { veterinaryTreatment } from '@/lib/openrouter'
+import { withAI } from '@/lib/ai-route-wrapper'
 
-export async function POST(request: NextRequest) {
-  try {
-    const { species, breed, age, weight, diagnosis, currentMedications } = await request.json()
-    if (!species || !diagnosis) {
-      return NextResponse.json({ error: 'Species and diagnosis are required' }, { status: 400 })
-    }
-    const result = await veterinaryTreatment(species, breed || '', age || '', weight || '', diagnosis, currentMedications)
-    return NextResponse.json(result)
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to generate treatment plan' }, { status: 500 })
-  }
-}
+export const POST = withAI<{
+  species: string
+  breed?: string
+  age?: string
+  weight?: string
+  diagnosis: string
+  currentMedications?: string
+}>('treatment', async (_req, _ctx, body) => {
+  if (!body.species || !body.diagnosis) throw new Error('Species and diagnosis are required')
+  return await veterinaryTreatment(
+    body.species,
+    body.breed || '',
+    body.age || '',
+    body.weight || '',
+    body.diagnosis,
+    body.currentMedications,
+  )
+})

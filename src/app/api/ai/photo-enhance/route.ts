@@ -1,25 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { analyzePhotoForEnhancement } from '@/lib/openrouter'
+import { withAI } from '@/lib/ai-route-wrapper'
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { image } = body
-
-    if (!image) {
-      return NextResponse.json(
-        { error: 'Image is required' },
-        { status: 400 }
-      )
-    }
-
-    const result = await analyzePhotoForEnhancement(image)
-    return NextResponse.json(result)
-  } catch (error) {
-    console.error('Photo enhancement error:', error)
-    return NextResponse.json(
-      { error: 'Failed to analyze photo' },
-      { status: 500 }
-    )
-  }
-}
+export const POST = withAI<{ image: string }>('photo-enhance', async (_req, _ctx, body) => {
+  if (!body.image) throw new Error('Image is required')
+  return await analyzePhotoForEnhancement(body.image)
+})
