@@ -1,0 +1,9 @@
+.git
+.next
+node_modules
+.env*
+!.env.example
+coverage
+npm-debug.log*
+_AUDIT_NOTE.md
+_COMPLETENESS_REVIEW.md

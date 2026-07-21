@@ -9,22 +9,34 @@ datasource db {
 
 // ============== USER & AUTHENTICATION ==============
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String
-  role          UserRole  @default(STAFF)
-  phone         String?
-  avatar        String?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  name        String
+  role        UserRole @default(STAFF)
+  phone       String?
+  avatar      String?
+  isActive    Boolean  @default(true)
+  authVersion Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  appointments  Appointment[]
-  transactions  Transaction[]
-  incidents     Incident[]
-  groomingSessions GroomingSession[]
+  appointments           Appointment[]
+  transactions           Transaction[]
+  incidents              Incident[]
+  groomingSessions       GroomingSession[]
+  technicianProfile      TechnicianProfile?
+  workflowQuotes         GroomingQuote[]      @relation("WorkflowQuoteCreator")
+  proposedWorkflowQuotes GroomingQuote[]      @relation("WorkflowQuoteTechnician")
+  assignedGroomingOrders GroomingOrder[]      @relation("WorkflowOrderTechnician")
+  dispatchesReceived     DispatchAssignment[] @relation("DispatchTechnician")
+  dispatchesCreated      DispatchAssignment[] @relation("DispatchActor")
+  changeOrdersRequested  ChangeOrder[]        @relation("ChangeRequester")
+  changeOrdersApproved   ChangeOrder[]        @relation("ChangeApprover")
+  workflowAudits         WorkflowAuditEvent[]
+  offlineCommands        OfflineCommand[]
+  providerConnectors     ProviderConnector[]
 
   @@index([email])
 }
@@ -39,68 +51,74 @@ enum UserRole {
 
 // ============== CLIENT & PET MANAGEMENT ==============
 model Client {
-  id              String    @id @default(cuid())
-  firstName       String
-  lastName        String
-  email           String    @unique
-  phone           String
-  alternatePhone  String?
-  address         String?
-  city            String?
-  state           String?
-  zipCode         String?
-  notes           String?
-  loyaltyPoints   Int       @default(0)
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String   @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String   @unique
+  phone          String
+  alternatePhone String?
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  notes          String?
+  loyaltyPoints  Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  pets            Pet[]
-  appointments    Appointment[]
-  transactions    Transaction[]
-  giftCards       GiftCard[]
-  reminderHistory ReminderHistory[]
+  pets             Pet[]
+  appointments     Appointment[]
+  transactions     Transaction[]
+  giftCards        GiftCard[]
+  reminderHistory  ReminderHistory[]
+  workflowQuotes   GroomingQuote[]
+  groomingOrders   GroomingOrder[]
+  workflowInvoices WorkflowInvoice[]
+  workflowMessages CustomerCommunication[]
 
   @@index([email])
   @@index([phone])
 }
 
 model Pet {
-  id                String    @id @default(cuid())
-  name              String
-  species           Species   @default(DOG)
-  breedId           String
-  breed             Breed     @relation(fields: [breedId], references: [id])
-  dateOfBirth       DateTime?
-  gender            Gender
-  weight            Float?
-  color             String?
-  microchipNumber   String?
-  isNeutered        Boolean   @default(false)
-  temperament       String?
-  specialNeeds      String?
-  allergies         String?
+  id                  String    @id @default(cuid())
+  name                String
+  species             Species   @default(DOG)
+  breedId             String
+  breed               Breed     @relation(fields: [breedId], references: [id])
+  dateOfBirth         DateTime?
+  gender              Gender
+  weight              Float?
+  color               String?
+  microchipNumber     String?
+  isNeutered          Boolean   @default(false)
+  temperament         String?
+  specialNeeds        String?
+  allergies           String?
   feedingInstructions String?
-  isActive          Boolean   @default(true)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   // Relations
-  clientId          String
-  client            Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  vaccinationRecords VaccinationRecord[]
-  behavioralNotes   BehavioralNote[]
-  groomingHistory   GroomingSession[]
-  photos            PetPhoto[]
-  appointments      Appointment[]
-  healthAlerts      HealthAlert[]
+  clientId            String
+  client              Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vaccinationRecords  VaccinationRecord[]
+  behavioralNotes     BehavioralNote[]
+  groomingHistory     GroomingSession[]
+  photos              PetPhoto[]
+  appointments        Appointment[]
+  healthAlerts        HealthAlert[]
   groomingPreferences GroomingPreference?
-  reminderHistory   ReminderHistory[]
-  medicalRecords    MedicalRecord[]
-  prescriptions     Prescription[]
-  labResults        LabResult[]
-  surgeries         Surgery[]
+  reminderHistory     ReminderHistory[]
+  medicalRecords      MedicalRecord[]
+  prescriptions       Prescription[]
+  labResults          LabResult[]
+  surgeries           Surgery[]
+  workflowQuotes      GroomingQuote[]
+  groomingOrders      GroomingOrder[]
 
   @@index([clientId])
   @@index([breedId])
@@ -118,20 +136,20 @@ enum Gender {
 }
 
 model Breed {
-  id              String    @id @default(cuid())
-  name            String
-  species         Species   @default(DOG)
-  size            BreedSize
-  coatType        String?
-  groomingFrequency Int?    // Recommended days between grooming
-  typicalDuration Int?      // Typical grooming duration in minutes
-  description     String?
-  imageUrl        String?
-  createdAt       DateTime  @default(now())
+  id                String    @id @default(cuid())
+  name              String
+  species           Species   @default(DOG)
+  size              BreedSize
+  coatType          String?
+  groomingFrequency Int? // Recommended days between grooming
+  typicalDuration   Int? // Typical grooming duration in minutes
+  description       String?
+  imageUrl          String?
+  createdAt         DateTime  @default(now())
 
   // Relations
-  pets            Pet[]
-  breedServices   BreedService[]
+  pets          Pet[]
+  breedServices BreedService[]
 
   @@unique([name, species])
   @@index([species])
@@ -146,33 +164,33 @@ enum BreedSize {
 }
 
 model VaccinationRecord {
-  id              String    @id @default(cuid())
-  petId           String
-  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  vaccineName     String
+  id               String    @id @default(cuid())
+  petId            String
+  pet              Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vaccineName      String
   dateAdministered DateTime
-  expirationDate  DateTime?
-  veterinarian    String?
-  notes           String?
-  documentUrl     String?
-  isVerified      Boolean   @default(false)
-  createdAt       DateTime  @default(now())
+  expirationDate   DateTime?
+  veterinarian     String?
+  notes            String?
+  documentUrl      String?
+  isVerified       Boolean   @default(false)
+  createdAt        DateTime  @default(now())
 
   @@index([petId])
   @@index([expirationDate])
 }
 
 model BehavioralNote {
-  id          String    @id @default(cuid())
+  id          String           @id @default(cuid())
   petId       String
-  pet         Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  pet         Pet              @relation(fields: [petId], references: [id], onDelete: Cascade)
   category    BehaviorCategory
-  severity    Severity  @default(LOW)
+  severity    Severity         @default(LOW)
   description String
   triggers    String?
   solutions   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@index([petId])
 }
@@ -194,16 +212,16 @@ enum Severity {
 }
 
 model PetPhoto {
-  id          String    @id @default(cuid())
-  petId       String
-  pet         Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  url         String
-  caption     String?
-  isBefore    Boolean   @default(false)
-  isAfter     Boolean   @default(false)
-  sessionId   String?
-  session     GroomingSession? @relation(fields: [sessionId], references: [id])
-  createdAt   DateTime  @default(now())
+  id        String           @id @default(cuid())
+  petId     String
+  pet       Pet              @relation(fields: [petId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  isBefore  Boolean          @default(false)
+  isAfter   Boolean          @default(false)
+  sessionId String?
+  session   GroomingSession? @relation(fields: [sessionId], references: [id])
+  createdAt DateTime         @default(now())
 
   @@index([petId])
   @@index([sessionId])
@@ -211,35 +229,35 @@ model PetPhoto {
 
 // ============== GROOMING PREFERENCES & NOTES ==============
 model GroomingPreference {
-  id              String    @id @default(cuid())
-  petId           String    @unique
-  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  preferredStyle  String?
-  coatLength      String?
-  specificCuts    String?
-  sensitiveAreas  String?
-  avoidAreas      String?
-  shampooPreference String?
+  id                    String   @id @default(cuid())
+  petId                 String   @unique
+  pet                   Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  preferredStyle        String?
+  coatLength            String?
+  specificCuts          String?
+  sensitiveAreas        String?
+  avoidAreas            String?
+  shampooPreference     String?
   conditionerPreference String?
-  dryingPreference String?
-  additionalNotes String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  dryingPreference      String?
+  additionalNotes       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model GroomingSession {
-  id              String    @id @default(cuid())
-  petId           String
-  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  groomerId       String
-  groomer         User      @relation(fields: [groomerId], references: [id])
-  appointmentId   String?   @unique
-  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+  id            String       @id @default(cuid())
+  petId         String
+  pet           Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
+  groomerId     String
+  groomer       User         @relation(fields: [groomerId], references: [id])
+  appointmentId String?      @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
 
   // Session details
-  checkInTime     DateTime?
-  checkOutTime    DateTime?
-  status          SessionStatus @default(PENDING)
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+  status       SessionStatus @default(PENDING)
 
   // Grooming notes
   conditionNotes  String?
@@ -249,10 +267,10 @@ model GroomingSession {
   recommendations String?
 
   // Photos
-  photos          PetPhoto[]
+  photos PetPhoto[]
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([petId])
   @@index([groomerId])
@@ -268,45 +286,45 @@ enum SessionStatus {
 
 // ============== APPOINTMENT SYSTEM ==============
 model Appointment {
-  id              String    @id @default(cuid())
-  clientId        String
-  client          Client    @relation(fields: [clientId], references: [id])
-  petId           String
-  pet             Pet       @relation(fields: [petId], references: [id])
-  groomerId       String?
-  groomer         User?     @relation(fields: [groomerId], references: [id])
+  id        String  @id @default(cuid())
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id])
+  petId     String
+  pet       Pet     @relation(fields: [petId], references: [id])
+  groomerId String?
+  groomer   User?   @relation(fields: [groomerId], references: [id])
 
   // Timing
-  scheduledDate   DateTime
-  scheduledTime   String
-  duration        Int       // Duration in minutes
+  scheduledDate DateTime
+  scheduledTime String
+  duration      Int // Duration in minutes
 
   // Status
-  status          AppointmentStatus @default(SCHEDULED)
+  status AppointmentStatus @default(SCHEDULED)
 
   // Recurrence
-  isRecurring     Boolean   @default(false)
-  recurrenceRule  String?   // RRULE format
-  parentId        String?
-  parent          Appointment? @relation("RecurringAppointments", fields: [parentId], references: [id])
-  children        Appointment[] @relation("RecurringAppointments")
+  isRecurring    Boolean       @default(false)
+  recurrenceRule String? // RRULE format
+  parentId       String?
+  parent         Appointment?  @relation("RecurringAppointments", fields: [parentId], references: [id])
+  children       Appointment[] @relation("RecurringAppointments")
 
   // Services
-  services        AppointmentService[]
+  services AppointmentService[]
 
   // Notes
   notes           String?
   specialRequests String?
 
   // Reminders
-  reminderSent    Boolean   @default(false)
-  reminderSentAt  DateTime?
+  reminderSent   Boolean   @default(false)
+  reminderSentAt DateTime?
 
   // Session
-  session         GroomingSession?
+  session GroomingSession?
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clientId])
   @@index([petId])
@@ -326,11 +344,11 @@ enum AppointmentStatus {
 }
 
 model AppointmentService {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   appointmentId String
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   serviceId     String
-  service       Service   @relation(fields: [serviceId], references: [id])
+  service       Service     @relation(fields: [serviceId], references: [id])
   price         Float
   duration      Int
   notes         String?
@@ -341,22 +359,26 @@ model AppointmentService {
 
 // ============== SERVICE MANAGEMENT ==============
 model Service {
-  id              String    @id @default(cuid())
-  name            String
-  description     String?
-  category        ServiceCategory
-  basePrice       Float
-  baseDuration    Int       // Base duration in minutes
-  isActive        Boolean   @default(true)
-  isAddOn         Boolean   @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id           String          @id @default(cuid())
+  name         String
+  description  String?
+  category     ServiceCategory
+  basePrice    Float
+  baseDuration Int // Base duration in minutes
+  isActive     Boolean         @default(true)
+  isAddOn      Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   // Relations
-  breedServices   BreedService[]
-  appointmentServices AppointmentService[]
-  packageServices PackageService[]
-  transactionItems TransactionItem[]
+  breedServices         BreedService[]
+  appointmentServices   AppointmentService[]
+  packageServices       PackageService[]
+  transactionItems      TransactionItem[]
+  technicianSkills      TechnicianSkill[]
+  quoteLines            GroomingQuoteLine[]
+  changeOrderLines      ChangeOrderLine[]
+  inventoryRequirements ServiceInventoryRequirement[]
 
   @@index([category])
   @@index([isActive])
@@ -374,13 +396,13 @@ enum ServiceCategory {
 }
 
 model BreedService {
-  id          String    @id @default(cuid())
-  breedId     String
-  breed       Breed     @relation(fields: [breedId], references: [id], onDelete: Cascade)
-  serviceId   String
-  service     Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  priceModifier Float   @default(0)  // Additional cost for this breed
-  durationModifier Int  @default(0)  // Additional time in minutes
+  id               String  @id @default(cuid())
+  breedId          String
+  breed            Breed   @relation(fields: [breedId], references: [id], onDelete: Cascade)
+  serviceId        String
+  service          Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  priceModifier    Float   @default(0) // Additional cost for this breed
+  durationModifier Int     @default(0) // Additional time in minutes
 
   @@unique([breedId, serviceId])
   @@index([breedId])
@@ -388,26 +410,26 @@ model BreedService {
 }
 
 model ServicePackage {
-  id              String    @id @default(cuid())
-  name            String
-  description     String?
-  price           Float
-  discount        Float     @default(0)  // Percentage discount
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  discount    Float    @default(0) // Percentage discount
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  services        PackageService[]
+  services         PackageService[]
   transactionItems TransactionItem[]
 }
 
 model PackageService {
-  id          String    @id @default(cuid())
-  packageId   String
-  package     ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  serviceId   String
-  service     Service   @relation(fields: [serviceId], references: [id])
+  id        String         @id @default(cuid())
+  packageId String
+  package   ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Service        @relation(fields: [serviceId], references: [id])
 
   @@unique([packageId, serviceId])
   @@index([packageId])
@@ -415,49 +437,49 @@ model PackageService {
 }
 
 model SpecialHandlingFee {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  amount      Float
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  amount       Float
   isPercentage Boolean  @default(false)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
 }
 
 // ============== POINT OF SALE ==============
 model Transaction {
-  id              String    @id @default(cuid())
-  clientId        String
-  client          Client    @relation(fields: [clientId], references: [id])
-  staffId         String
-  staff           User      @relation(fields: [staffId], references: [id])
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+  staffId  String
+  staff    User   @relation(fields: [staffId], references: [id])
 
   // Amounts
-  subtotal        Float
-  tax             Float
-  discount        Float     @default(0)
-  tip             Float     @default(0)
-  total           Float
+  subtotal Float
+  tax      Float
+  discount Float @default(0)
+  tip      Float @default(0)
+  total    Float
 
   // Payment
-  paymentMethod   PaymentMethod
-  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(PENDING)
 
   // Gift card usage
-  giftCardId      String?
-  giftCard        GiftCard? @relation(fields: [giftCardId], references: [id])
-  giftCardAmount  Float     @default(0)
+  giftCardId     String?
+  giftCard       GiftCard? @relation(fields: [giftCardId], references: [id])
+  giftCardAmount Float     @default(0)
 
   // Loyalty
-  loyaltyPointsEarned Int   @default(0)
-  loyaltyPointsUsed   Int   @default(0)
+  loyaltyPointsEarned Int @default(0)
+  loyaltyPointsUsed   Int @default(0)
 
   // Items
-  items           TransactionItem[]
+  items TransactionItem[]
 
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clientId])
   @@index([staffId])
@@ -481,23 +503,23 @@ enum PaymentStatus {
 }
 
 model TransactionItem {
-  id              String    @id @default(cuid())
-  transactionId   String
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   // Item can be a service, package, or product
-  itemType        ItemType
-  serviceId       String?
-  service         Service?  @relation(fields: [serviceId], references: [id])
-  packageId       String?
-  package         ServicePackage? @relation(fields: [packageId], references: [id])
-  productId       String?
-  product         Product?  @relation(fields: [productId], references: [id])
+  itemType  ItemType
+  serviceId String?
+  service   Service?        @relation(fields: [serviceId], references: [id])
+  packageId String?
+  package   ServicePackage? @relation(fields: [packageId], references: [id])
+  productId String?
+  product   Product?        @relation(fields: [productId], references: [id])
 
-  quantity        Int       @default(1)
-  unitPrice       Float
-  discount        Float     @default(0)
-  total           Float
+  quantity  Int   @default(1)
+  unitPrice Float
+  discount  Float @default(0)
+  total     Float
 
   @@index([transactionId])
 }
@@ -509,20 +531,24 @@ enum ItemType {
 }
 
 model Product {
-  id              String    @id @default(cuid())
-  name            String
-  description     String?
-  sku             String    @unique
-  category        ProductCategory
-  price           Float
-  cost            Float?
-  quantity        Int       @default(0)
-  reorderLevel    Int       @default(5)
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id               String          @id @default(cuid())
+  name             String
+  description      String?
+  sku              String          @unique
+  category         ProductCategory
+  price            Float
+  cost             Float?
+  quantity         Int             @default(0)
+  reservedQuantity Int             @default(0)
+  reorderLevel     Int             @default(5)
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  transactionItems TransactionItem[]
+  transactionItems      TransactionItem[]
+  serviceRequirements   ServiceInventoryRequirement[]
+  inventoryReservations InventoryReservation[]
+  inventoryMovements    InventoryMovement[]
 
   @@index([category])
   @@index([sku])
@@ -541,18 +567,18 @@ enum ProductCategory {
 }
 
 model GiftCard {
-  id              String    @id @default(cuid())
-  code            String    @unique
-  initialBalance  Float
-  currentBalance  Float
-  clientId        String?
-  client          Client?   @relation(fields: [clientId], references: [id])
-  isActive        Boolean   @default(true)
-  expiresAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  code           String    @unique
+  initialBalance Float
+  currentBalance Float
+  clientId       String?
+  client         Client?   @relation(fields: [clientId], references: [id])
+  isActive       Boolean   @default(true)
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  transactions    Transaction[]
+  transactions Transaction[]
 
   @@index([code])
   @@index([clientId])
@@ -560,18 +586,18 @@ model GiftCard {
 
 // ============== HEALTH & SAFETY ==============
 model HealthAlert {
-  id              String    @id @default(cuid())
-  petId           String
-  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  alertType       AlertType
-  severity        Severity
-  title           String
-  description     String
-  isResolved      Boolean   @default(false)
-  resolvedAt      DateTime?
-  resolvedNotes   String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  petId         String
+  pet           Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  alertType     AlertType
+  severity      Severity
+  title         String
+  description   String
+  isResolved    Boolean   @default(false)
+  resolvedAt    DateTime?
+  resolvedNotes String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([petId])
   @@index([isResolved])
@@ -589,21 +615,21 @@ enum AlertType {
 }
 
 model Incident {
-  id              String    @id @default(cuid())
-  reportedBy      String
-  reporter        User      @relation(fields: [reportedBy], references: [id])
-  incidentType    IncidentType
-  severity        Severity
-  title           String
-  description     String
-  location        String?
-  actionsTaken    String?
-  followUpRequired Boolean  @default(false)
-  isResolved      Boolean   @default(false)
-  resolvedAt      DateTime?
-  resolvedNotes   String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id               String       @id @default(cuid())
+  reportedBy       String
+  reporter         User         @relation(fields: [reportedBy], references: [id])
+  incidentType     IncidentType
+  severity         Severity
+  title            String
+  description      String
+  location         String?
+  actionsTaken     String?
+  followUpRequired Boolean      @default(false)
+  isResolved       Boolean      @default(false)
+  resolvedAt       DateTime?
+  resolvedNotes    String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   @@index([reportedBy])
   @@index([isResolved])
@@ -620,78 +646,78 @@ enum IncidentType {
 }
 
 model EmergencyContact {
-  id              String    @id @default(cuid())
-  name            String
-  relationship    String
-  phone           String
-  alternatePhone  String?
-  email           String?
-  isVeterinarian  Boolean   @default(false)
-  vetClinicName   String?
-  vetAddress      String?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  relationship   String
+  phone          String
+  alternatePhone String?
+  email          String?
+  isVeterinarian Boolean  @default(false)
+  vetClinicName  String?
+  vetAddress     String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // ============== AI FEATURES STORAGE ==============
 model AIBreedPrediction {
-  id              String    @id @default(cuid())
-  imageUrl        String
-  predictedBreed  String
-  confidence      Float
-  alternativeBreeds String?  // JSON array of alternatives
-  createdAt       DateTime  @default(now())
+  id                String   @id @default(cuid())
+  imageUrl          String
+  predictedBreed    String
+  confidence        Float
+  alternativeBreeds String? // JSON array of alternatives
+  createdAt         DateTime @default(now())
 }
 
 model AIStyleSuggestion {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   petId           String
   breedId         String
-  suggestedStyles String    // JSON array of style suggestions
+  suggestedStyles String // JSON array of style suggestions
   reasoning       String?
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime @default(now())
 
   @@index([petId])
 }
 
 model AISocialPost {
-  id              String    @id @default(cuid())
-  petPhotoId      String
-  platform        String
-  content         String
-  hashtags        String?
-  isPosted        Boolean   @default(false)
-  postedAt        DateTime?
-  createdAt       DateTime  @default(now())
+  id         String    @id @default(cuid())
+  petPhotoId String
+  platform   String
+  content    String
+  hashtags   String?
+  isPosted   Boolean   @default(false)
+  postedAt   DateTime?
+  createdAt  DateTime  @default(now())
 }
 
 // ============== SETTINGS ==============
 model BusinessSettings {
-  id              String    @id @default(cuid())
-  businessName    String
-  address         String?
-  phone           String?
-  email           String?
-  website         String?
-  timezone        String    @default("America/New_York")
-  currency        String    @default("USD")
-  taxRate         Float     @default(0)
+  id           String  @id @default(cuid())
+  businessName String
+  address      String?
+  phone        String?
+  email        String?
+  website      String?
+  timezone     String  @default("America/New_York")
+  currency     String  @default("USD")
+  taxRate      Float   @default(0)
 
   // Operating hours (JSON)
-  operatingHours  String?
+  operatingHours String?
 
   // Booking settings
-  bookingLeadTime Int       @default(24)  // Hours in advance required
-  maxAdvanceBooking Int     @default(30)  // Days in advance allowed
-  slotDuration    Int       @default(15)  // Minutes per slot
+  bookingLeadTime   Int @default(24) // Hours in advance required
+  maxAdvanceBooking Int @default(30) // Days in advance allowed
+  slotDuration      Int @default(15) // Minutes per slot
 
   // Loyalty settings
-  loyaltyPointsPerDollar Int @default(1)
+  loyaltyPointsPerDollar Int   @default(1)
   loyaltyPointsValue     Float @default(0.01)
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ============== PASSWORD RESET ==============
@@ -708,15 +734,15 @@ model PasswordResetToken {
 
 // ============== REMINDER HISTORY ==============
 model ReminderHistory {
-  id              String    @id @default(cuid())
-  petId           String
-  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  clientId        String
-  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  type            String    // OVERDUE, DUE, UPCOMING, NEW_CLIENT
-  message         String
-  sentVia         String    @default("EMAIL") // EMAIL, SMS, BOTH
-  sentAt          DateTime  @default(now())
+  id       String   @id @default(cuid())
+  petId    String
+  pet      Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type     String // OVERDUE, DUE, UPCOMING, NEW_CLIENT
+  message  String
+  sentVia  String   @default("EMAIL") // EMAIL, SMS, BOTH
+  sentAt   DateTime @default(now())
 
   @@index([petId])
   @@index([clientId])
@@ -744,77 +770,77 @@ enum SurgeryStatus {
 }
 
 model MedicalRecord {
-  id              String    @id @default(cuid())
-  petId           String
-  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  vetName         String
-  recordDate      DateTime
-  diagnosis       String
-  symptoms        String
-  treatment       String
-  followUp        String?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id         String   @id @default(cuid())
+  petId      String
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vetName    String
+  recordDate DateTime
+  diagnosis  String
+  symptoms   String
+  treatment  String
+  followUp   String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([petId])
 }
 
 model Prescription {
-  id              String             @id @default(cuid())
-  petId           String
-  pet             Pet                @relation(fields: [petId], references: [id], onDelete: Cascade)
-  vetName         String
-  medication      String
-  dosage          String
-  frequency       String
-  duration        String
-  prescribedDate  DateTime
-  status          PrescriptionStatus @default(ACTIVE)
-  instructions    String?
-  notes           String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id             String             @id @default(cuid())
+  petId          String
+  pet            Pet                @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vetName        String
+  medication     String
+  dosage         String
+  frequency      String
+  duration       String
+  prescribedDate DateTime
+  status         PrescriptionStatus @default(ACTIVE)
+  instructions   String?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@index([petId])
   @@index([status])
 }
 
 model LabResult {
-  id              String    @id @default(cuid())
-  petId           String
-  pet             Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  testName        String
-  testType        String
-  testDate        DateTime
-  results         String
-  normalRange     String?
-  status          LabStatus @default(PENDING)
-  orderedBy       String?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  petId       String
+  pet         Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  testName    String
+  testType    String
+  testDate    DateTime
+  results     String
+  normalRange String?
+  status      LabStatus @default(PENDING)
+  orderedBy   String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([petId])
   @@index([status])
 }
 
 model Surgery {
-  id              String        @id @default(cuid())
-  petId           String
-  pet             Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
-  surgeonName     String
-  surgeryDate     DateTime
-  surgeryType     String
-  anesthesiaType  String?
-  duration        String?
-  status          SurgeryStatus @default(SCHEDULED)
-  preOpNotes      String?
-  postOpNotes     String?
-  complications   String?
-  notes           String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  petId          String
+  pet            Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
+  surgeonName    String
+  surgeryDate    DateTime
+  surgeryType    String
+  anesthesiaType String?
+  duration       String?
+  status         SurgeryStatus @default(SCHEDULED)
+  preOpNotes     String?
+  postOpNotes    String?
+  complications  String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([petId])
   @@index([status])
@@ -822,18 +848,18 @@ model Surgery {
 
 // ============== AI USAGE TRACKING & PER-TENANT KEYS ==============
 model AIUsageLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  feature     String
-  model       String?
-  input       Json?
-  output      Json?
-  error       String?
-  durationMs  Int?
-  tokensIn    Int?
-  tokensOut   Int?
-  costUsd     Float?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String?
+  feature    String
+  model      String?
+  input      Json?
+  output     Json?
+  error      String?
+  durationMs Int?
+  tokensIn   Int?
+  tokensOut  Int?
+  costUsd    Float?
+  createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([feature])
@@ -841,31 +867,31 @@ model AIUsageLog {
 }
 
 model TenantAISettings {
-  id                  String   @id @default(cuid())
-  tenantId            String   @unique @default("default")
-  openrouterApiKey    String?  // Encrypted via app-side envelope encryption
-  openrouterModel     String?
-  visionModel         String?
-  monthlyBudgetUsd    Float?
-  alertThresholdPct   Int      @default(80)
-  hardCapEnabled      Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String   @id @default(cuid())
+  tenantId          String   @unique @default("default")
+  openrouterApiKey  String? // Encrypted via app-side envelope encryption
+  openrouterModel   String?
+  visionModel       String?
+  monthlyBudgetUsd  Float?
+  alertThresholdPct Int      @default(80)
+  hardCapEnabled    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // ============== PRE-VISIT AI INTAKE ==============
 model PreVisitIntake {
-  id              String   @id @default(cuid())
-  appointmentId   String?
-  petId           String?
-  clientPhone     String
-  rawSymptoms     String?
-  rawPhotos       Json     @default("[]") // Array of Cloudinary URLs
-  aiTriageResult  Json?    // Full AI summary
-  urgencyLevel    String?  // ROUTINE / SOON / URGENT / EMERGENCY
-  flaggedForVet   Boolean  @default(false)
-  reviewedAt      DateTime?
-  createdAt       DateTime @default(now())
+  id             String    @id @default(cuid())
+  appointmentId  String?
+  petId          String?
+  clientPhone    String
+  rawSymptoms    String?
+  rawPhotos      Json      @default("[]") // Array of Cloudinary URLs
+  aiTriageResult Json? // Full AI summary
+  urgencyLevel   String? // ROUTINE / SOON / URGENT / EMERGENCY
+  flaggedForVet  Boolean   @default(false)
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
 
   @@index([clientPhone])
   @@index([appointmentId])
@@ -876,9 +902,9 @@ model PreVisitIntake {
 model NoShowPrediction {
   id              String   @id @default(cuid())
   appointmentId   String   @unique
-  riskScore       Float    // 0..1 probability of no-show
-  riskTier        String   // LOW / MEDIUM / HIGH
-  features        Json     // Snapshot of model inputs
+  riskScore       Float // 0..1 probability of no-show
+  riskTier        String // LOW / MEDIUM / HIGH
+  features        Json // Snapshot of model inputs
   depositRequired Boolean  @default(false)
   depositAmount   Float?
   createdAt       DateTime @default(now())
@@ -888,15 +914,15 @@ model NoShowPrediction {
 
 // ============== STYLE PREVIEW (image gen) ==============
 model StylePreview {
-  id              String   @id @default(cuid())
-  petId           String
-  styleName       String
-  beforeImageUrl  String
-  afterImageUrl   String?
-  status          String   @default("PENDING") // PENDING / READY / FAILED
-  errorMsg        String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  petId          String
+  styleName      String
+  beforeImageUrl String
+  afterImageUrl  String?
+  status         String   @default("PENDING") // PENDING / READY / FAILED
+  errorMsg       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([petId])
   @@index([status])
@@ -911,52 +937,536 @@ model FamilyGroup {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  members         FamilyMember[]
-  bundles         BundleSuggestion[]
+  members FamilyMember[]
+  bundles BundleSuggestion[]
 }
 
 model FamilyMember {
-  id              String   @id @default(cuid())
-  familyGroupId   String
-  family          FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
-  clientId        String
-  petId           String?
-  createdAt       DateTime @default(now())
+  id            String      @id @default(cuid())
+  familyGroupId String
+  family        FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
+  clientId      String
+  petId         String?
+  createdAt     DateTime    @default(now())
 
   @@index([familyGroupId])
   @@index([clientId])
 }
 
 model BundleSuggestion {
-  id              String   @id @default(cuid())
-  familyGroupId   String
-  family          FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
-  recommendedServices Json   // Array of {petId, services[], price}
-  totalPrice      Float
-  discountPct     Float
-  reasoning       String?
-  acceptedAt      DateTime?
-  createdAt       DateTime @default(now())
+  id                  String      @id @default(cuid())
+  familyGroupId       String
+  family              FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
+  recommendedServices Json // Array of {petId, services[], price}
+  totalPrice          Float
+  discountPct         Float
+  reasoning           String?
+  acceptedAt          DateTime?
+  createdAt           DateTime    @default(now())
 
   @@index([familyGroupId])
 }
 
 // ============== VACCINE/MED REMINDER AGENT ==============
 model VaccineReminderJob {
-  id              String   @id @default(cuid())
-  petId           String
-  vaccinationId   String?
-  prescriptionId  String?
-  reminderType    String   // VACCINE / MEDICATION
-  scheduledFor    DateTime
-  sentAt          DateTime?
-  confirmedAt     DateTime?
+  id                String    @id @default(cuid())
+  petId             String
+  vaccinationId     String?
+  prescriptionId    String?
+  reminderType      String // VACCINE / MEDICATION
+  scheduledFor      DateTime
+  sentAt            DateTime?
+  confirmedAt       DateTime?
   confirmationReply String?
-  status          String   @default("PENDING") // PENDING / SENT / CONFIRMED / DECLINED / FAILED
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status            String    @default("PENDING") // PENDING / SENT / CONFIRMED / DECLINED / FAILED
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([petId])
   @@index([scheduledFor])
   @@index([status])
+}
+
+// ============== GOVERNED MOBILE GROOMING WORKFLOW ==============
+enum WorkflowQuoteStatus {
+  DRAFT
+  OFFERED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  FAILED
+}
+
+enum WorkflowBookingStatus {
+  BOOKED
+  DISPATCHED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum WorkflowJobStatus {
+  NOT_STARTED
+  CHECKED_IN
+  IN_PROGRESS
+  PARTIAL
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+enum WorkflowChangeStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  VOIDED
+}
+
+enum WorkflowInvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  VOID
+}
+
+enum WorkflowPaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum ProviderKind {
+  MAPS
+  CALENDAR
+  MESSAGING
+  PAYMENT
+  TAX
+  ACCOUNTING
+}
+
+enum IntegrationOperationStatus {
+  PENDING
+  LEASED
+  RETRY
+  COMPLETED
+  DEAD_LETTER
+}
+
+enum OfflineCommandStatus {
+  APPLIED
+  DUPLICATE
+  CONFLICT
+  REJECTED
+}
+
+model TechnicianProfile {
+  userId        String                   @id
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  baseLatitude  Float
+  baseLongitude Float
+  maxTravelKm   Float
+  active        Boolean                  @default(true)
+  version       Int                      @default(1)
+  createdAt     DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime                 @updatedAt @db.Timestamptz(3)
+  skills        TechnicianSkill[]
+  availability  TechnicianAvailability[]
+  serviceAreas  TechnicianServiceArea[]
+
+  @@index([active])
+  @@map("workflow_technician_profiles")
+}
+
+model TechnicianSkill {
+  id           String            @id @default(cuid())
+  technicianId String
+  technician   TechnicianProfile @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+  serviceId    String
+  service      Service           @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  proficiency  Int               @default(1)
+
+  @@unique([technicianId, serviceId])
+  @@index([serviceId])
+  @@map("workflow_technician_skills")
+}
+
+model TechnicianAvailability {
+  id              String            @id @default(cuid())
+  technicianId    String
+  technician      TechnicianProfile @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+  startsAt        DateTime          @db.Timestamptz(3)
+  endsAt          DateTime          @db.Timestamptz(3)
+  available       Boolean           @default(true)
+  source          String
+  externalEventId String?
+  createdAt       DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@index([technicianId, startsAt, endsAt])
+  @@map("workflow_technician_availability")
+}
+
+model TechnicianServiceArea {
+  id           String            @id @default(cuid())
+  technicianId String
+  technician   TechnicianProfile @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+  postalPrefix String
+
+  @@unique([technicianId, postalPrefix])
+  @@map("workflow_technician_service_areas")
+}
+
+model ServiceInventoryRequirement {
+  id        String  @id @default(cuid())
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+
+  @@unique([serviceId, productId])
+  @@map("workflow_service_inventory_requirements")
+}
+
+model GroomingQuote {
+  id                   String               @id @default(cuid())
+  idempotencyKey       String               @unique
+  createdById          String
+  createdBy            User                 @relation("WorkflowQuoteCreator", fields: [createdById], references: [id])
+  clientId             String
+  client               Client               @relation(fields: [clientId], references: [id])
+  petId                String
+  pet                  Pet                  @relation(fields: [petId], references: [id])
+  proposedTechnicianId String
+  proposedTechnician   User                 @relation("WorkflowQuoteTechnician", fields: [proposedTechnicianId], references: [id])
+  status               WorkflowQuoteStatus  @default(DRAFT)
+  requestedStart       DateTime             @db.Timestamptz(3)
+  requestedEnd         DateTime             @db.Timestamptz(3)
+  addressLine          String
+  postalCode           String
+  latitude             Float
+  longitude            Float
+  currency             String               @default("USD")
+  subtotalCents        Int
+  taxCents             Int                  @default(0)
+  totalCents           Int                  @default(0)
+  travelKm             Float?
+  providerFailure      String?
+  expiresAt            DateTime             @db.Timestamptz(3)
+  version              Int                  @default(1)
+  createdAt            DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime             @updatedAt @db.Timestamptz(3)
+  lines                GroomingQuoteLine[]
+  order                GroomingOrder?
+  audits               WorkflowAuditEvent[]
+
+  @@index([clientId, createdAt])
+  @@index([status, expiresAt])
+  @@map("workflow_quotes")
+}
+
+model GroomingQuoteLine {
+  id              String        @id @default(cuid())
+  quoteId         String
+  quote           GroomingQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  serviceId       String
+  service         Service       @relation(fields: [serviceId], references: [id])
+  serviceName     String
+  quantity        Int           @default(1)
+  unitPriceCents  Int
+  durationMinutes Int
+
+  @@unique([quoteId, serviceId])
+  @@map("workflow_quote_lines")
+}
+
+model GroomingOrder {
+  id                    String                  @id @default(cuid())
+  quoteId               String                  @unique
+  quote                 GroomingQuote           @relation(fields: [quoteId], references: [id])
+  clientId              String
+  client                Client                  @relation(fields: [clientId], references: [id])
+  petId                 String
+  pet                   Pet                     @relation(fields: [petId], references: [id])
+  technicianId          String
+  technician            User                    @relation("WorkflowOrderTechnician", fields: [technicianId], references: [id])
+  bookingStatus         WorkflowBookingStatus   @default(BOOKED)
+  jobStatus             WorkflowJobStatus       @default(NOT_STARTED)
+  scheduledStart        DateTime                @db.Timestamptz(3)
+  scheduledEnd          DateTime                @db.Timestamptz(3)
+  addressLine           String
+  postalCode            String
+  latitude              Float
+  longitude             Float
+  quotedTotalCents      Int
+  deliveredCents        Int                     @default(0)
+  cancellationReason    String?
+  cancelledAt           DateTime?               @db.Timestamptz(3)
+  version               Int                     @default(1)
+  createdAt             DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                @updatedAt @db.Timestamptz(3)
+  dispatches            DispatchAssignment[]
+  changeOrders          ChangeOrder[]
+  inventoryReservations InventoryReservation[]
+  invoice               WorkflowInvoice?
+  communications        CustomerCommunication[]
+  offlineCommands       OfflineCommand[]
+  audits                WorkflowAuditEvent[]
+
+  @@index([technicianId, scheduledStart, scheduledEnd])
+  @@index([bookingStatus, scheduledStart])
+  @@map("workflow_orders")
+}
+
+model DispatchAssignment {
+  id           String        @id @default(cuid())
+  orderId      String
+  order        GroomingOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  technicianId String
+  technician   User          @relation("DispatchTechnician", fields: [technicianId], references: [id])
+  assignedById String
+  assignedBy   User          @relation("DispatchActor", fields: [assignedById], references: [id])
+  active       Boolean       @default(true)
+  reason       String
+  assignedAt   DateTime      @default(now()) @db.Timestamptz(3)
+  releasedAt   DateTime?     @db.Timestamptz(3)
+
+  @@index([orderId, active])
+  @@map("workflow_dispatch_assignments")
+}
+
+model ChangeOrder {
+  id            String               @id @default(cuid())
+  orderId       String
+  order         GroomingOrder        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedById String
+  requestedBy   User                 @relation("ChangeRequester", fields: [requestedById], references: [id])
+  approvedById  String?
+  approvedBy    User?                @relation("ChangeApprover", fields: [approvedById], references: [id])
+  status        WorkflowChangeStatus @default(REQUESTED)
+  reason        String
+  deltaCents    Int
+  requestedAt   DateTime             @default(now()) @db.Timestamptz(3)
+  decidedAt     DateTime?            @db.Timestamptz(3)
+  lines         ChangeOrderLine[]
+
+  @@index([orderId, status])
+  @@map("workflow_change_orders")
+}
+
+model ChangeOrderLine {
+  id              String      @id @default(cuid())
+  changeOrderId   String
+  changeOrder     ChangeOrder @relation(fields: [changeOrderId], references: [id], onDelete: Cascade)
+  serviceId       String
+  service         Service     @relation(fields: [serviceId], references: [id])
+  serviceName     String
+  quantity        Int         @default(1)
+  unitPriceCents  Int
+  durationMinutes Int
+
+  @@map("workflow_change_order_lines")
+}
+
+model InventoryReservation {
+  id        String        @id @default(cuid())
+  orderId   String
+  order     GroomingOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product       @relation(fields: [productId], references: [id])
+  quantity  Int
+  consumed  Int           @default(0)
+  released  Int           @default(0)
+  createdAt DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@unique([orderId, productId])
+  @@map("workflow_inventory_reservations")
+}
+
+model InventoryMovement {
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+  orderId        String?
+  movementType   String
+  quantity       Int
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([productId, createdAt])
+  @@map("workflow_inventory_movements")
+}
+
+model WorkflowInvoice {
+  id            String                @id @default(cuid())
+  orderId       String                @unique
+  order         GroomingOrder         @relation(fields: [orderId], references: [id])
+  clientId      String
+  client        Client                @relation(fields: [clientId], references: [id])
+  status        WorkflowInvoiceStatus @default(DRAFT)
+  currency      String                @default("USD")
+  subtotalCents Int
+  taxCents      Int
+  totalCents    Int
+  paidCents     Int                   @default(0)
+  refundedCents Int                   @default(0)
+  issuedAt      DateTime?             @db.Timestamptz(3)
+  createdAt     DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime              @updatedAt @db.Timestamptz(3)
+  payments      WorkflowPayment[]
+
+  @@index([clientId, status])
+  @@map("workflow_invoices")
+}
+
+model WorkflowPayment {
+  id                 String                @id @default(cuid())
+  invoiceId          String
+  invoice            WorkflowInvoice       @relation(fields: [invoiceId], references: [id])
+  idempotencyKey     String                @unique
+  providerExternalId String?               @unique
+  status             WorkflowPaymentStatus @default(PENDING)
+  amountCents        Int
+  failureCode        String?
+  createdAt          DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime              @updatedAt @db.Timestamptz(3)
+  refunds            WorkflowRefund[]
+
+  @@index([invoiceId, status])
+  @@map("workflow_payments")
+}
+
+model WorkflowRefund {
+  id                 String                @id @default(cuid())
+  paymentId          String
+  payment            WorkflowPayment       @relation(fields: [paymentId], references: [id])
+  idempotencyKey     String                @unique
+  providerExternalId String?               @unique
+  status             WorkflowPaymentStatus @default(PENDING)
+  amountCents        Int
+  reason             String
+  createdAt          DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime              @updatedAt @db.Timestamptz(3)
+
+  @@index([paymentId, status])
+  @@map("workflow_refunds")
+}
+
+model ProviderConnector {
+  id               String                      @id @default(cuid())
+  kind             ProviderKind
+  provider         String
+  endpoint         String
+  allowedHost      String
+  credentialEnv    String
+  webhookSecretEnv String?
+  serviceUserId    String
+  serviceUser      User                        @relation(fields: [serviceUserId], references: [id])
+  enabled          Boolean                     @default(true)
+  createdAt        DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                    @updatedAt @db.Timestamptz(3)
+  operations       IntegrationOperation[]
+  webhooks         IntegrationWebhookReceipt[]
+
+  @@unique([kind, provider])
+  @@index([kind, enabled])
+  @@map("workflow_provider_connectors")
+}
+
+model IntegrationOperation {
+  id             String                     @id @default(cuid())
+  connectorId    String
+  connector      ProviderConnector          @relation(fields: [connectorId], references: [id])
+  operationType  String
+  aggregateType  String
+  aggregateId    String
+  idempotencyKey String                     @unique
+  status         IntegrationOperationStatus @default(PENDING)
+  payload        Json
+  output         Json?
+  receipt        String?
+  attempts       Int                        @default(0)
+  maxAttempts    Int                        @default(5)
+  nextAttemptAt  DateTime                   @default(now()) @db.Timestamptz(3)
+  leasedUntil    DateTime?                  @db.Timestamptz(3)
+  leasedBy       String?
+  lastError      String?
+  createdAt      DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                   @updatedAt @db.Timestamptz(3)
+
+  @@index([status, nextAttemptAt])
+  @@index([aggregateType, aggregateId])
+  @@map("workflow_integration_operations")
+}
+
+model IntegrationWebhookReceipt {
+  id              String            @id @default(cuid())
+  connectorId     String
+  connector       ProviderConnector @relation(fields: [connectorId], references: [id])
+  externalEventId String
+  payloadHash     String
+  receivedAt      DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@unique([connectorId, externalEventId])
+  @@map("workflow_webhook_receipts")
+}
+
+model CustomerCommunication {
+  id              String        @id @default(cuid())
+  orderId         String
+  order           GroomingOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id])
+  channel         String
+  template        String
+  status          String        @default("QUEUED")
+  providerReceipt String?
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([orderId, createdAt])
+  @@map("workflow_customer_communications")
+}
+
+model OfflineCommand {
+  id              String               @id @default(cuid())
+  orderId         String
+  order           GroomingOrder        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actorId         String
+  actor           User                 @relation(fields: [actorId], references: [id])
+  deviceId        String
+  clientCommandId String
+  expectedVersion Int
+  command         String
+  payload         Json
+  status          OfflineCommandStatus
+  result          Json?
+  createdAt       DateTime             @default(now()) @db.Timestamptz(3)
+
+  @@unique([deviceId, clientCommandId])
+  @@index([orderId, createdAt])
+  @@map("workflow_offline_commands")
+}
+
+model WorkflowAuditEvent {
+  id           String         @id @default(cuid())
+  orderId      String?
+  order        GroomingOrder? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  quoteId      String?
+  quote        GroomingQuote? @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  actorId      String
+  actor        User           @relation(fields: [actorId], references: [id])
+  action       String
+  payload      Json
+  previousHash String?
+  eventHash    String         @unique
+  createdAt    DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([orderId, createdAt, id])
+  @@index([quoteId, createdAt, id])
+  @@map("workflow_audit_events")
 }

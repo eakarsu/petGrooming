@@ -4,11 +4,11 @@ import { db } from '@/lib/db'
 // GET single service
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const service = await db.service.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         breedServices: {
           include: { breed: true },
@@ -30,13 +30,13 @@ export async function GET(
 // PUT update service
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()
 
     const service = await db.service.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: body,
     })
 
@@ -50,11 +50,11 @@ export async function PUT(
 // DELETE service (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await db.service.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { isActive: false },
     })
 

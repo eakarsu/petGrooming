@@ -38,8 +38,7 @@ export default function RemindersPage() {
   const [sentReminders, setSentReminders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null)
-  const [aiMessage, setAiMessage] = useState('')
-  const [generatingMessage, setGeneratingMessage] = useState(false)
+  const [messagePreview, setMessagePreview] = useState('')
   const [sendingReminder, setSendingReminder] = useState(false)
   const [filterType, setFilterType] = useState<string | null>(null)
 
@@ -65,28 +64,9 @@ export default function RemindersPage() {
     setLoading(false)
   }
 
-  const generateAiMessage = async (reminder: Reminder) => {
+  const prepareMessage = (reminder: Reminder) => {
     setSelectedReminder(reminder)
-    setGeneratingMessage(true)
-    
-    try {
-      const res = await fetch('/api/ai/reminder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          petName: reminder.pet.name,
-          clientName: `${reminder.pet.client.firstName} ${reminder.pet.client.lastName}`,
-          breed: reminder.pet.breed.name,
-          lastVisit: reminder.lastAppointment?.scheduledDate,
-          daysOverdue: reminder.daysOverdue,
-        }),
-      })
-      const data = await res.json()
-      setAiMessage(data.message || `Hi ${reminder.pet.client.firstName}, it's time to schedule ${reminder.pet.name}'s next grooming appointment!`)
-    } catch (error) {
-      setAiMessage(`Hi ${reminder.pet.client.firstName}, it's time to schedule ${reminder.pet.name}'s next grooming appointment! We recommend booking soon to keep their coat healthy and looking great.`)
-    }
-    setGeneratingMessage(false)
+    setMessagePreview(`Hi ${reminder.pet.client.firstName}, it's time to schedule ${reminder.pet.name}'s next grooming appointment. Please contact us to choose an available time.`)
   }
 
   const sendReminder = async () => {
@@ -100,13 +80,13 @@ export default function RemindersPage() {
         body: JSON.stringify({
           petId: selectedReminder.pet.id,
           clientId: selectedReminder.pet.client.id,
-          message: aiMessage,
+          message: messagePreview,
           type: selectedReminder.type,
         }),
       })
       toast.success('Reminder sent! Click "Sent History" tab to view.')
       setSelectedReminder(null)
-      setAiMessage('')
+      setMessagePreview('')
       await fetchReminders()
     } catch (error) {
       toast.error('Failed to send reminder')
@@ -263,7 +243,7 @@ export default function RemindersPage() {
                         </div>
                         <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                           {getPriorityBadge(reminder.priority)}
-                          <Button size="sm" onClick={() => generateAiMessage(reminder)}>
+                          <Button size="sm" onClick={() => prepareMessage(reminder)}>
                             <Send className="h-4 w-4 mr-1" />
                             Send Reminder
                           </Button>
@@ -278,7 +258,7 @@ export default function RemindersPage() {
       )}
 
       {/* Send Reminder Dialog with History */}
-      <Dialog open={!!selectedReminder} onOpenChange={() => { setSelectedReminder(null); setAiMessage(''); }}>
+      <Dialog open={!!selectedReminder} onOpenChange={() => { setSelectedReminder(null); setMessagePreview(''); }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -317,27 +297,20 @@ export default function RemindersPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">AI-Generated Message</label>
-                      {generatingMessage ? (
-                        <div className="p-4 border rounded-lg bg-gray-50 flex items-center gap-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
-                          <span className="text-gray-500">Generating personalized message...</span>
-                        </div>
-                      ) : (
-                        <textarea
-                          className="w-full p-3 border rounded-lg min-h-[120px]"
-                          value={aiMessage}
-                          onChange={(e) => setAiMessage(e.target.value)}
-                          placeholder="Message will appear here..."
-                        />
-                      )}
+                      <label className="block text-sm font-medium mb-2">Message</label>
+                      <textarea
+                        className="w-full p-3 border rounded-lg min-h-[120px]"
+                        value={messagePreview}
+                        onChange={(e) => setMessagePreview(e.target.value)}
+                        placeholder="Message will appear here..."
+                      />
                     </div>
 
                     <div className="flex justify-end gap-2 pt-2">
-                      <Button variant="outline" onClick={() => { setSelectedReminder(null); setAiMessage(''); }}>
+                      <Button variant="outline" onClick={() => { setSelectedReminder(null); setMessagePreview(''); }}>
                         Cancel
                       </Button>
-                      <Button onClick={sendReminder} disabled={!aiMessage || sendingReminder}>
+                      <Button onClick={sendReminder} disabled={!messagePreview || sendingReminder}>
                         {sendingReminder ? (
                           <>
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>

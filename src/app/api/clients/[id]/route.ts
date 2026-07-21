@@ -19,11 +19,11 @@ const clientUpdateSchema = z.object({
 // GET single client
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const client = await db.client.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         pets: {
           where: { isActive: true },
@@ -63,7 +63,7 @@ export async function GET(
 // PUT update client
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()
@@ -74,7 +74,7 @@ export async function PUT(
       const existing = await db.client.findFirst({
         where: {
           email: validatedData.email,
-          NOT: { id: params.id },
+          NOT: { id: (await params).id },
         },
       })
 
@@ -84,7 +84,7 @@ export async function PUT(
     }
 
     const client = await db.client.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: validatedData,
       include: {
         pets: {
@@ -107,17 +107,17 @@ export async function PUT(
 // DELETE client (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await db.client.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { isActive: false },
     })
 
     // Also deactivate all pets
     await db.pet.updateMany({
-      where: { clientId: params.id },
+      where: { clientId: (await params).id },
       data: { isActive: false },
     })
 

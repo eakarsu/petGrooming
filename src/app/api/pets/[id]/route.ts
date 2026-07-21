@@ -21,11 +21,11 @@ const petUpdateSchema = z.object({
 // GET single pet
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const pet = await db.pet.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         breed: true,
         client: true,
@@ -68,7 +68,7 @@ export async function GET(
 // PUT update pet
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()
@@ -80,7 +80,7 @@ export async function PUT(
     }
 
     const pet = await db.pet.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: updateData,
       include: {
         breed: true,
@@ -101,11 +101,11 @@ export async function PUT(
 // DELETE pet (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await db.pet.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { isActive: false },
     })
 

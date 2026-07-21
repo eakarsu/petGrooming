@@ -6,12 +6,11 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { PawPrint, UserCheck } from 'lucide-react'
+import { PawPrint } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 const loginSchema = z.object({
@@ -28,17 +27,10 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   })
-
-  const fillDemoCredentials = () => {
-    setValue('email', 'admin@petgroom.com')
-    setValue('password', 'password123')
-    toast.success('Demo credentials filled!')
-  }
 
   const onSubmit = async (data: LoginFormData) => {
     setLoading(true)
@@ -80,7 +72,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@petgroom.com"
+                placeholder="you@business.example"
                 {...register('email')}
                 error={errors.email?.message}
               />
@@ -99,28 +91,7 @@ export default function LoginPage() {
               Sign In
             </Button>
           </form>
-          <div className="mt-4 space-y-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={fillDemoCredentials}
-            >
-              <UserCheck className="mr-2 h-4 w-4" />
-              Use Demo Credentials
-            </Button>
-            <div className="text-center text-xs text-gray-400">
-              <p>admin@petgroom.com / password123</p>
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between text-sm">
-            <Link href="/auth/forgot-password" className="text-primary-600 hover:underline">
-              Forgot Password?
-            </Link>
-            <Link href="/auth/register" className="text-primary-600 hover:underline">
-              Create Account
-            </Link>
-          </div>
+          <p className="mt-4 text-center text-xs text-gray-500">Accounts are provisioned by an administrator.</p>
         </CardContent>
       </Card>
     </div>

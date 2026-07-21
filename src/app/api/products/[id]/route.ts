@@ -4,11 +4,11 @@ import { db } from '@/lib/db'
 // GET single product
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const product = await db.product.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     })
 
     if (!product) {
@@ -25,13 +25,13 @@ export async function GET(
 // PUT update product
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()
 
     const product = await db.product.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: body,
     })
 
@@ -45,11 +45,11 @@ export async function PUT(
 // DELETE product (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await db.product.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { isActive: false },
     })
 

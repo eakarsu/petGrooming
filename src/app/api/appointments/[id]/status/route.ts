@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 // PATCH update appointment status
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()
@@ -25,7 +25,7 @@ export async function PATCH(
     }
 
     const appointment = await db.appointment.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { status },
       include: {
         client: true,
@@ -38,7 +38,7 @@ export async function PATCH(
     // If checking in, create a grooming session
     if (status === 'CHECKED_IN') {
       const existingSession = await db.groomingSession.findUnique({
-        where: { appointmentId: params.id },
+        where: { appointmentId: (await params).id },
       })
 
       if (!existingSession && appointment.groomerId) {

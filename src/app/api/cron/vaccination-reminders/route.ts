@@ -14,10 +14,11 @@ import { checkUpcomingVaccinations } from '@/lib/scheduler'
  */
 export async function GET(request: NextRequest) {
   // Validate the cron secret to prevent unauthorised triggers
-  const secret = request.headers.get('x-cron-secret') ?? request.nextUrl.searchParams.get('secret')
+  const secret = request.headers.get('x-cron-secret')
   const expectedSecret = process.env.CRON_SECRET
 
-  if (expectedSecret && secret !== expectedSecret) {
+  if (!expectedSecret) return NextResponse.json({ error: 'Cron is not configured' }, { status: 503 })
+  if (secret !== expectedSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

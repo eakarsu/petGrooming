@@ -12,7 +12,6 @@ import {
   Scissors,
   ShoppingCart,
   Heart,
-  Sparkles,
   Settings,
   ClipboardList,
   Package,
@@ -23,6 +22,7 @@ import {
   BarChart3,
   Stethoscope,
   CreditCard,
+  Route,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import {
@@ -40,6 +40,7 @@ const navigation = [
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Pets', href: '/pets', icon: PawPrint },
   { name: 'Appointments', href: '/appointments', icon: Calendar },
+  { name: 'Mobile Operations', href: '/operations', icon: Route },
   { name: 'Grooming', href: '/grooming', icon: Scissors },
   { name: 'Workload', href: '/grooming/workload', icon: BarChart3 },
   { name: 'Gallery', href: '/gallery', icon: Camera },
@@ -51,8 +52,6 @@ const navigation = [
   { name: 'Loyalty', href: '/loyalty', icon: Gift },
   { name: 'Gift Cards', href: '/gift-cards', icon: CreditCard },
   { name: 'Reminders', href: '/reminders', icon: Bell },
-  { name: 'AI Features', href: '/ai', icon: Sparkles },
-  { name: 'Coat Condition', href: '/coat-condition', icon: Camera },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 

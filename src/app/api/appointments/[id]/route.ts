@@ -4,11 +4,11 @@ import { db } from '@/lib/db'
 // GET single appointment
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const appointment = await db.appointment.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: {
         client: true,
         pet: {
@@ -41,7 +41,7 @@ export async function GET(
 // PUT update appointment
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()
@@ -55,7 +55,7 @@ export async function PUT(
     if (body.specialRequests !== undefined) updateData.specialRequests = body.specialRequests
 
     const appointment = await db.appointment.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: updateData,
       include: {
         client: true,
@@ -75,11 +75,11 @@ export async function PUT(
 // DELETE appointment
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await db.appointment.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { status: 'CANCELLED' },
     })
 

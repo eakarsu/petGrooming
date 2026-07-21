@@ -46,7 +46,6 @@ import {
   MapPin,
   User,
   Calendar,
-  Sparkles,
 } from 'lucide-react'
 import { TableLoading } from '@/components/ui/loading'
 import { formatDate } from '@/lib/utils'
@@ -160,11 +159,6 @@ export default function HealthSafetyPage() {
   const [sendingReminder, setSendingReminder] = useState<string | null>(null)
   const [reminderMessage, setReminderMessage] = useState<string | null>(null)
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
-
-  // AI Analyze state
-  const [analyzingHealth, setAnalyzingHealth] = useState<string | null>(null)
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
-  const [aiAnalysisDialogOpen, setAiAnalysisDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -301,54 +295,14 @@ export default function HealthSafetyPage() {
   const sendVaccinationReminder = async (alert: VaccinationAlert) => {
     setSendingReminder(alert.id)
     try {
-      const response = await fetch('/api/ai/reminder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientName: alert.ownerName,
-          petName: alert.petName,
-          lastVisitDate: 'their last vaccination',
-          recommendedServices: [`${alert.vaccineName} vaccination renewal`],
-        }),
-      })
-      const data = await response.json()
-      if (data.error) throw new Error(data.error)
-
-      setReminderMessage(data.message || data.reminder || JSON.stringify(data))
+      setReminderMessage(`Hello ${alert.ownerName}, our records show that ${alert.petName}'s ${alert.vaccineName} vaccination needs renewal. Please contact your veterinarian and send us the updated record before the next grooming appointment.`)
       setReminderDialogOpen(true)
-      toast.success('Reminder generated!')
+      toast.success('Reminder prepared')
     } catch (error) {
       toast.error('Failed to generate reminder')
       console.error(error)
     } finally {
       setSendingReminder(null)
-    }
-  }
-
-  const analyzeHealthConcern = async (alert: HealthAlert) => {
-    setAnalyzingHealth(alert.id)
-    try {
-      const response = await fetch('/api/ai/health-analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          petName: alert.pet.name,
-          symptoms: alert.description,
-          alertType: alert.alertType,
-          severity: alert.severity,
-        }),
-      })
-      const data = await response.json()
-      if (data.error) throw new Error(data.error)
-
-      setAiAnalysis(data.analysis || data.recommendations || JSON.stringify(data))
-      setAiAnalysisDialogOpen(true)
-      toast.success('AI analysis complete!')
-    } catch (error) {
-      toast.error('Failed to analyze health concern')
-      console.error(error)
-    } finally {
-      setAnalyzingHealth(null)
     }
   }
 
@@ -1346,14 +1300,6 @@ export default function HealthSafetyPage() {
                     View Pet
                   </Button>
                 </Link>
-                <Button
-                  variant="outline"
-                  loading={analyzingHealth === selectedHealthAlert.id}
-                  onClick={() => analyzeHealthConcern(selectedHealthAlert)}
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  AI Analyze
-                </Button>
                 {!selectedHealthAlert.isResolved && (
                   <Button
                     onClick={() => {
@@ -1411,41 +1357,6 @@ export default function HealthSafetyPage() {
         </DialogContent>
       </Dialog>
 
-      {/* AI Analysis Dialog */}
-      <Dialog open={aiAnalysisDialogOpen} onOpenChange={setAiAnalysisDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary-600" />
-              AI Health Analysis
-            </DialogTitle>
-          </DialogHeader>
-          {aiAnalysis && (
-            <div className="space-y-4">
-              <div className="rounded-lg bg-purple-50 p-4 border border-purple-200">
-                <p className="text-sm text-purple-800 whitespace-pre-wrap">{aiAnalysis}</p>
-              </div>
-              <p className="text-xs text-gray-500">
-                Note: This AI analysis is for informational purposes only and should not replace professional veterinary advice.
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    navigator.clipboard.writeText(aiAnalysis)
-                    toast.success('Copied to clipboard!')
-                  }}
-                >
-                  Copy to Clipboard
-                </Button>
-                <Button onClick={() => setAiAnalysisDialogOpen(false)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

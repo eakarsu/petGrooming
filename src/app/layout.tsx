@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'PetGroom Pro - Pet Grooming Management Platform',
-  description: 'Professional pet grooming management platform with AI-powered features',
+  description: 'Governed pet grooming booking, dispatch, work, invoicing, and payment operations',
 }
 
 export default function RootLayout({

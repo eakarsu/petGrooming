@@ -82,8 +82,8 @@ export default function ProfilePage() {
       toast.error('New passwords do not match')
       return
     }
-    if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters')
+    if (newPassword.length < 14) {
+      toast.error('Password must be at least 14 characters')
       return
     }
 
@@ -215,7 +215,7 @@ export default function ProfilePage() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 6 characters"
+                placeholder="At least 14 characters"
               />
             </div>
             <div className="space-y-2">

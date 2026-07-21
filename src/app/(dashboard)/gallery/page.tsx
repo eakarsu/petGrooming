@@ -15,10 +15,6 @@ import { format } from 'date-fns'
 function PetImage({ src, alt, className, petId }: { src: string; alt: string; className?: string; petId?: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
-  const [imgSrc, setImgSrc] = useState(src)
-
-  // Generate a consistent fallback based on petId
-  const fallbackSrc = `https://picsum.photos/seed/${petId || 'default'}/400/400`
 
   return (
     <div className={`relative ${className || ''}`}>
@@ -28,18 +24,13 @@ function PetImage({ src, alt, className, petId }: { src: string; alt: string; cl
         </div>
       )}
       <img
-        src={imgSrc}
+        src={src}
         alt={alt}
         className={`w-full h-full object-cover transition-opacity ${loading ? 'opacity-0' : 'opacity-100'}`}
         onLoad={() => setLoading(false)}
         onError={() => {
-          if (imgSrc !== fallbackSrc) {
-            setImgSrc(fallbackSrc)
-            setLoading(true)
-          } else {
-            setError(true)
-            setLoading(false)
-          }
+          setError(true)
+          setLoading(false)
         }}
       />
       {error && (

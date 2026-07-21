@@ -102,9 +102,11 @@ export function slugify(text: string): string {
 
 export function generateCode(prefix: string, length: number = 8): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  const random = new Uint32Array(length)
+  globalThis.crypto.getRandomValues(random)
   let code = prefix
   for (let i = 0; i < length; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length))
+    code += chars.charAt(random[i] % chars.length)
   }
   return code
 }

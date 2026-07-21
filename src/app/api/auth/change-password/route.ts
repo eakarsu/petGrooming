@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Current and new passwords are required' }, { status: 400 })
     }
 
-    if (newPassword.length < 6) {
-      return NextResponse.json({ error: 'New password must be at least 6 characters' }, { status: 400 })
+    if (newPassword.length < 14) {
+      return NextResponse.json({ error: 'New password must be at least 14 characters' }, { status: 400 })
     }
 
     const userId = (session.user as any).id
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await hash(newPassword, 12)
     await db.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, authVersion: { increment: 1 } },
     })
 
     return NextResponse.json({ message: 'Password changed successfully' })
