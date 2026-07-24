@@ -25,7 +25,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   const {
-    register,
+    register, setValue,
     handleSubmit,
     formState: { errors },
   } = useForm<LoginFormData>({
@@ -87,6 +87,15 @@ export default function LoginPage() {
                 error={errors.password?.message}
               />
             </div>
+            <button
+              type="button"
+              onClick={() => { setValue('email', process.env.NEXT_PUBLIC_DEMO_EMAIL || ''); setValue('password', process.env.NEXT_PUBLIC_DEMO_PASSWORD || ''); }}
+              disabled={!process.env.NEXT_PUBLIC_DEMO_EMAIL || !process.env.NEXT_PUBLIC_DEMO_PASSWORD}
+              aria-label="Auto Fill Demo Credentials"
+              style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
+            >
+              Auto Fill Demo Credentials
+            </button>
             <Button type="submit" className="w-full" loading={loading}>
               Sign In
             </Button>
