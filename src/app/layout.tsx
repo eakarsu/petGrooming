@@ -5,6 +5,9 @@ import { Providers } from './providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
+// Nonces must be rendered separately for each document request.
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'PetGroom Pro - Pet Grooming Management Platform',
   description: 'Governed pet grooming booking, dispatch, work, invoicing, and payment operations',
