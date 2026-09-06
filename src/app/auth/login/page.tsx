@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -23,6 +23,17 @@ type LoginFormData = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [demoEnabled, setDemoEnabled] = useState(false)
+  const [demoLoading, setDemoLoading] = useState(false)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/auth/demo-credentials?status=1', { cache: 'no-store', signal: controller.signal })
+      .then(async response => response.ok ? response.json() : { enabled: false })
+      .then(result => setDemoEnabled(result.enabled === true))
+      .catch(() => {})
+    return () => controller.abort()
+  }, [])
 
   const {
     register, setValue,
@@ -87,23 +98,32 @@ export default function LoginPage() {
                 error={errors.password?.message}
               />
             </div>
-            <button
+            {demoEnabled && <button
               type="button"
+              disabled={demoLoading || loading}
               onClick={async () => {
-                const response = await fetch('/api/auth/demo-credentials', { cache: 'no-store' })
-                if (!response.ok) {
-                  toast.error('Demo credentials are unavailable')
-                  return
+                setDemoLoading(true)
+                try {
+                  const response = await fetch('/api/auth/demo-credentials', { cache: 'no-store' })
+                  const credentials = await response.json()
+                  if (!response.ok || !credentials.enabled || !credentials.email || !credentials.password) {
+                    setDemoEnabled(false)
+                    toast.error('Demo credentials are unavailable. Please sign in with your account.')
+                    return
+                  }
+                  setValue('email', credentials.email, { shouldValidate: true })
+                  setValue('password', credentials.password, { shouldValidate: true })
+                } catch {
+                  toast.error('Could not load demo credentials. Please try again.')
+                } finally {
+                  setDemoLoading(false)
                 }
-                const credentials = await response.json()
-                setValue('email', credentials.email, { shouldValidate: true })
-                setValue('password', credentials.password, { shouldValidate: true })
               }}
               aria-label="Auto Fill Demo Credentials"
               style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
             >
-              Auto Fill Demo Credentials
-            </button>
+              {demoLoading ? 'Filling credentials…' : 'Auto Fill Demo Credentials'}
+            </button>}
             <Button type="submit" className="w-full" loading={loading}>
               Sign In
             </Button>

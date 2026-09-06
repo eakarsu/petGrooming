@@ -7,3 +7,10 @@ test('business health records are private while liveness stays public',async()=>
  }
  assert.equal((await middleware(new NextRequest('http://localhost:3000/api/health/live'))).status,200)
 })
+test('local IP browser origin remains same-origin when Next normalizes its URL', async () => {
+ const url='http://localhost:30940/api/auth/callback/credentials'
+ const good=await middleware(new NextRequest(url,{method:'POST',headers:{host:'127.0.0.1:30940',origin:'http://127.0.0.1:30940'}}))
+ assert.equal(good.status,200)
+ const bad=await middleware(new NextRequest(url,{method:'POST',headers:{host:'127.0.0.1:30940',origin:'https://untrusted.example'}}))
+ assert.equal(bad.status,403)
+})

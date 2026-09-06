@@ -19,7 +19,11 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const allowed = String(process.env.CORS_ALLOWED_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean)
     const origin = request.headers.get('origin')
-    if (origin && origin !== request.nextUrl.origin && !allowed.includes(origin)) return NextResponse.json({ error: 'Origin is not allowed' }, { status: 403 })
+    // Next's development URL may normalize 127.0.0.1 to localhost. Compare
+    // against the actual request Host, preserving the browser's origin.
+    const host = request.headers.get('host')
+    const requestOrigin = host ? `${request.nextUrl.protocol}//${host}` : request.nextUrl.origin
+    if (origin && origin !== requestOrigin && !allowed.includes(origin)) return NextResponse.json({ error: 'Origin is not allowed' }, { status: 403 })
   }
   if (['/api/health/live', '/api/health/ready'].includes(request.nextUrl.pathname)) return nextPage()
   if (publicPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) return nextPage()

@@ -14,6 +14,8 @@ The governed mobile workflow and new counter checkout calculations use integer c
 
 `start.sh` generates the Prisma client, deploys checked-in migrations, provisions a missing administrator while preserving an existing account, optionally loads demo records when explicitly configured, and runs Next.js development mode plus the local proxy. It refuses occupied ports and does not install dependencies or create the PostgreSQL database. `npm run provision` remains an explicit administrator reset operation. AI credentials are optional for startup; AI requests require valid provider configuration. Demo credential autofill requires an explicit local opt-in and is disabled in production.
 
+For local credential autofill, set `ENABLE_DEMO_CREDENTIAL_AUTOFILL=true` in `.env` and restart `./start.sh`. The login button appears only when a configured administrator email and password are available. Its availability check never returns credentials; clicking the button fills them only for localhost requests in development mode. Disabled autofill returns a normal availability response instead of a missing-route error.
+
 See [operations](docs/OPERATIONS.md) and [provider contracts](docs/PROVIDER_CONTRACTS.md).
 
 ## Local sample data
@@ -24,12 +26,16 @@ After configuring the existing administrator and deploying migrations, run
 administrator are unchanged. Records persist across restarts; existing edits are
 preserved and deterministic IDs prevent duplicates.
 
+The loader supplies at least 15 examples in each of 40 data tables, including vaccinations, behavior notes, veterinary contacts, incidents, medical records, cancelled prescription and surgery examples, pending lab requests, intake, style preview requests, bundles and unapproved knowledge drafts. Clinical examples are fictional, contain no treatment instructions and are not verified medical evidence. Payment receipts, provider activity, security tokens, audit history and AI execution history are created by their workflows; singleton business settings are configured by an administrator.
+
 To restore missing samples during local startup, set `LOAD_DEMO_DATA=true` in the
 ignored `.env`. It defaults to false. The loader refuses production mode and remote
 databases. It does not send messages, run AI, charge cards, or manufacture provider
 receipts. Demo requests remain pending/draft and demo promotions remain inactive.
-Appointment dates are set on the first load and are preserved thereafter; use the
-date controls to view them on later days.
+Each loader run adds a set of 15 appointments, linked services, pending grooming
+sessions and groomer availability for the current local date. Date-specific IDs
+prevent duplicate appointments on repeat loads; historical appointments and edits
+remain intact. Run the loader again on a later day to populate that day's views.
 
 When running the portfolio locally, include `connection_limit=2&pool_timeout=30`
 in the PostgreSQL `DATABASE_URL` query parameters to keep simultaneous apps from
