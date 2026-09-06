@@ -100,10 +100,7 @@ esac
 : "${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}"
 [[ "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}" == 'https://openrouter.ai/api/v1' ]] || { echo 'Canonical OPENROUTER_BASE_URL is required' >&2; exit 1; }
 [[ "$BACKEND_PORT" != "$FRONTEND_PORT" ]] || { echo 'Assigned ports must differ' >&2; exit 1; }
-for port in "$BACKEND_PORT" "$FRONTEND_PORT"; do
-  [[ "$port" =~ ^[0-9]+$ ]] || { echo 'Assigned ports must be numeric' >&2; exit 1; }
-  ! lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1 || { echo "Port $port is occupied" >&2; exit 1; }
-done
+node "$project_dir/scripts/clear-project-ports.cjs" "$BACKEND_PORT" "$FRONTEND_PORT"
 
 cd "$project_dir"
 npm run db:generate

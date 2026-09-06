@@ -22,7 +22,8 @@
     "demo-data:verify": "node scripts/load-demo-data.cjs --verify",
     "test:isolated": "node scripts/test-isolated.cjs",
     "test:unit": "tsx --test --test-concurrency=1 test/workflow.unit.test.ts test/provider-regressions.test.ts test/middleware-regressions.test.ts test/local-date.test.ts test/runtime-proxy.test.ts",
-    "test:restore": "node scripts/verify-restore.cjs"
+    "test:restore": "node scripts/verify-restore.cjs",
+    "test:startup": "node scripts/test-port-cleanup.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
