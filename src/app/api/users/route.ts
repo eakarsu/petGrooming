@@ -1,66 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { z } from 'zod'
 import { hash } from 'bcryptjs'
-
-// GET all users
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const role = searchParams.get('role')
-
-    const where: any = { isActive: true }
-    if (role) where.role = role
-
-    const users = await db.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        avatar: true,
-        isActive: true,
-        createdAt: true,
-      },
-      orderBy: { name: 'asc' },
-    })
-
-    return NextResponse.json(users)
-  } catch (error) {
-    console.error('Get users error:', error)
-    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
-  }
-}
-
-// POST create user
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const hashedPassword = await hash(body.password, 12)
-
-    const user = await db.user.create({
-      data: {
-        name: body.name,
-        email: body.email,
-        password: hashedPassword,
-        role: body.role || 'STAFF',
-        phone: body.phone,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        isActive: true,
-        createdAt: true,
-      },
-    })
-
-    return NextResponse.json(user, { status: 201 })
-  } catch (error) {
-    console.error('Create user error:', error)
-    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
-  }
-}
+import { UserRole } from '@prisma/client'
+import { db } from '@/lib/db'
+import { endpoint,readJson,mutate,audit } from '@/lib/operations/core'
+const safeUser={id:true,name:true,email:true,role:true,phone:true,avatar:true,isActive:true,createdAt:true} as const
+const schema=z.object({name:z.string().trim().min(1).max(150),email:z.string().trim().toLowerCase().email().max(254),password:z.string().min(14).refine(s=>Buffer.byteLength(s,'utf8')<=72,'Password must not exceed 72 UTF-8 bytes'),role:z.nativeEnum(UserRole).default('STAFF'),phone:z.string().max(50).optional()}).strict()
+export const GET=endpoint(undefined,async request=>{const role=request.nextUrl.searchParams.get('role');return db.user.findMany({where:{isActive:true,...(role?{role:z.nativeEnum(UserRole).parse(role)}:{})},select:safeUser,orderBy:{name:'asc'},take:500})})
+export const POST=endpoint(['ADMIN'],async(request,actor)=>{const input=schema.parse(await readJson(request));const password=await hash(input.password,12);return mutate(actor.id,request.headers.get('Idempotency-Key'),'user.create',{...input,password:undefined,passwordDigest:await import('node:crypto').then(c=>c.createHash('sha256').update(input.password).digest('hex'))},async tx=>{const user=await tx.user.create({data:{...input,password},select:safeUser});await audit(tx,actor.id,'user.create',user.id,{email:user.email,role:user.role});return user},['ADMIN'])})

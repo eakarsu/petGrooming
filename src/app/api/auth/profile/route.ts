@@ -1,10 +1,11 @@
+import { withAccess } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 
 // GET current user profile
-export async function GET() {
+async function handleGET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -37,7 +38,7 @@ export async function GET() {
 }
 
 // PUT update profile
-export async function PUT(request: NextRequest) {
+async function handlePUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -70,3 +71,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const PUT = withAccess(undefined, handlePUT)

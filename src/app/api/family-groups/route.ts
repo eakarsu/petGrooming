@@ -1,9 +1,10 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ data, page, pageSize, total, totalPages: Math.ceil(total / pageSize) })
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -52,3 +53,6 @@ export async function POST(request: NextRequest) {
   })
   return NextResponse.json(created, { status: 201 })
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const POST = withAccess(OFFICE, handlePOST)

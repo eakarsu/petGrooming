@@ -1,9 +1,10 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const petId = searchParams.get('petId')
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json()
     const { petId, vetName, recordDate, diagnosis, symptoms, treatment, followUp, notes } = body
@@ -49,3 +50,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create medical record' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const POST = withAccess(MANAGEMENT, handlePOST)

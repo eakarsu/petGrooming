@@ -51,7 +51,7 @@ elif [ -n "${DEFAULT_EMAIL:-}" ] && [ -n "${DEFAULT_PASSWORD:-}" ]; then
   demo_credentials_email="$DEFAULT_EMAIL"
   demo_credentials_password="$DEFAULT_PASSWORD"
 fi
-if [ "${NODE_ENV:-development}" != production ] && [ "${ENABLE_DEMO_CREDENTIAL_AUTOFILL:-true}" = true ] && [ -n "$demo_credentials_email" ] && [ -n "$demo_credentials_password" ]; then
+if [ "${NODE_ENV:-development}" != production ] && [ "${ENABLE_DEMO_CREDENTIAL_AUTOFILL:-false}" = true ] && [ -n "$demo_credentials_email" ] && [ -n "$demo_credentials_password" ]; then
   export NEXT_PUBLIC_ENABLE_DEMO_CREDENTIAL_AUTOFILL=true
   export NEXT_PUBLIC_DEMO_EMAIL="$demo_credentials_email"
   export NEXT_PUBLIC_DEMO_PASSWORD="$demo_credentials_password"
@@ -98,9 +98,7 @@ esac
 : "${BACKEND_PORT:?BACKEND_PORT is required}"
 : "${FRONTEND_PORT:?FRONTEND_PORT is required}"
 : "${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}"
-: "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}"
-: "${OPENROUTER_MODEL:?OPENROUTER_MODEL is required}"
-[[ "${OPENROUTER_BASE_URL:-}" == 'https://openrouter.ai/api/v1' ]] || { echo 'Canonical OPENROUTER_BASE_URL is required' >&2; exit 1; }
+[[ "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}" == 'https://openrouter.ai/api/v1' ]] || { echo 'Canonical OPENROUTER_BASE_URL is required' >&2; exit 1; }
 [[ "$BACKEND_PORT" != "$FRONTEND_PORT" ]] || { echo 'Assigned ports must differ' >&2; exit 1; }
 for port in "$BACKEND_PORT" "$FRONTEND_PORT"; do
   [[ "$port" =~ ^[0-9]+$ ]] || { echo 'Assigned ports must be numeric' >&2; exit 1; }
@@ -110,7 +108,8 @@ done
 cd "$project_dir"
 npm run db:generate
 npm run db:migrate:deploy
-npm run create-admin
+PROVISION_SKIP_EXISTING=true npm run create-admin
+if [[ "${LOAD_DEMO_DATA:-false}" == true ]]; then npm run demo-data:load; fi
 api_pid=''; proxy_pid=''
 cleanup() {
   trap - INT TERM EXIT

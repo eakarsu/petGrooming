@@ -1,3 +1,4 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { z } from 'zod'
@@ -13,11 +14,11 @@ const clientUpdateSchema = z.object({
   state: z.string().optional(),
   zipCode: z.string().optional(),
   notes: z.string().optional(),
-  loyaltyPoints: z.number().optional(),
+
 })
 
 // GET single client
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -61,7 +62,7 @@ export async function GET(
 }
 
 // PUT update client
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -105,7 +106,7 @@ export async function PUT(
 }
 
 // DELETE client (soft delete)
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -127,3 +128,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Failed to delete client' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const PUT = withAccess(OFFICE, handlePUT)
+export const DELETE = withAccess(OFFICE, handleDELETE)

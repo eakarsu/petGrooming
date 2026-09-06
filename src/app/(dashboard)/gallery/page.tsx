@@ -187,7 +187,7 @@ export default function GalleryPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         </div>
       ) : (
-        <Tabs defaultValue="pairs" className="space-y-6">
+        <Tabs defaultValue="all" className="space-y-6">
           <TabsList>
             <TabsTrigger value="pairs" className="gap-2">
               <Columns className="h-4 w-4" />

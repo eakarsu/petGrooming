@@ -1,10 +1,11 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { addDays, subDays, differenceInDays } from 'date-fns'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get('type') || 'pending'
@@ -131,7 +132,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json()
     const { petId, clientId, message, type } = body
@@ -201,3 +202,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAccess(OFFICE, handleGET)
+export const POST = withAccess(OFFICE, handlePOST)

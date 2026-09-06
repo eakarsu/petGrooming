@@ -1,7 +1,8 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function PATCH(
+async function handlePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -20,3 +21,5 @@ export async function PATCH(
     return NextResponse.json({ error: 'Failed to resolve alert' }, { status: 500 })
   }
 }
+
+export const PATCH = withAccess(OFFICE, handlePATCH)

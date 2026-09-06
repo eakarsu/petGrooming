@@ -1,8 +1,9 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { uploadImage } from '@/lib/cloudinary'
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const petId = searchParams.get('petId')
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type') ?? ''
 
@@ -153,3 +154,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const POST = withAccess(OFFICE, handlePOST)

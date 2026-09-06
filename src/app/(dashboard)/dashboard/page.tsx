@@ -21,7 +21,13 @@ import { formatCurrency, formatTime } from '@/lib/utils'
 
 interface DashboardStats {
   todayAppointments: number
-  weekRevenue: number
+  weekRevenue: number | null
+  vaccinationExpiring: number
+  currency: string
+  timezone: string
+  date: string
+  revenueDefinition: string
+  unverifiedLegacyPayments: number
   totalClients: number
   totalPets: number
   pendingCheckIns: number
@@ -42,6 +48,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [appointments, setAppointments] = useState<TodayAppointment[]>([])
+  const [error,setError] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -49,12 +56,14 @@ export default function DashboardPage() {
   }, [])
 
   const fetchDashboardData = async () => {
+    setLoading(true);setError('')
     try {
       const [statsRes, appointmentsRes] = await Promise.all([
         fetch('/api/dashboard/stats'),
         fetch('/api/dashboard/today-appointments'),
       ])
 
+      if (!statsRes.ok || !appointmentsRes.ok) throw new Error('Dashboard could not load. Please retry.')
       if (statsRes.ok) {
         const statsData = await statsRes.json()
         setStats(statsData)
@@ -65,7 +74,7 @@ export default function DashboardPage() {
         setAppointments(appointmentsData)
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error)
+      setError(error instanceof Error ? error.message : 'Dashboard could not load')
     } finally {
       setLoading(false)
     }
@@ -80,8 +89,8 @@ export default function DashboardPage() {
       href: '/appointments',
     },
     {
-      title: 'Week Revenue',
-      value: formatCurrency(stats?.weekRevenue || 0),
+      title: 'Week Counter Receipts',
+      value: stats?.weekRevenue == null ? 'Manager access' : new Intl.NumberFormat(undefined,{style:'currency',currency:stats.currency}).format(stats.weekRevenue),
       icon: DollarSign,
       color: 'bg-green-500',
       href: '/pos',
@@ -119,13 +128,15 @@ export default function DashboardPage() {
     }
   }
 
+  if (loading) return <p role="status">Loading dashboard…</p>
+  if (error || !stats) return <div role="alert"><p>{error || 'Dashboard unavailable'}</p><Button onClick={fetchDashboardData}>Retry</Button></div>
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500">Welcome back! Here's what's happening today.</p>
+          <p className="text-gray-500">{stats.date} · {stats.timezone}</p>
         </div>
         <div className="flex gap-3">
           <Link href="/appointments/new">
@@ -164,6 +175,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      <p className="text-sm text-gray-500">{stats.revenueDefinition} {stats.unverifiedLegacyPayments > 0 && `${stats.unverifiedLegacyPayments} historical payment records lack verification and are excluded.`}</p>
       {/* Quick Actions & Today's Schedule */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Quick Actions */}
@@ -282,7 +294,7 @@ export default function DashboardPage() {
                 <AlertTriangle className="h-5 w-5 text-yellow-600" />
                 <div>
                   <p className="font-medium text-yellow-800">Vaccination Expiring</p>
-                  <p className="text-sm text-yellow-600">3 pets have vaccinations expiring within 7 days</p>
+                  <p className="text-sm text-yellow-600">{stats.vaccinationExpiring} pets have vaccination records expiring within 7 days</p>
                 </div>
               </div>
               <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>

@@ -14,6 +14,9 @@ async function main() {
     if (password.length < 14) throw new Error('PROVISION_ADMIN_PASSWORD must be at least 14 characters')
     const email = required('PROVISION_ADMIN_EMAIL').toLowerCase()
     const name = required('PROVISION_ADMIN_NAME')
+    if (process.env.PROVISION_SKIP_EXISTING === 'true' && await prisma.user.findUnique({ where: { email }, select: { id: true } })) {
+      console.log('Existing administrator preserved'); return
+    }
     const passwordHash = await hash(password, 12)
     const user = await prisma.user.upsert({
       where: { email },

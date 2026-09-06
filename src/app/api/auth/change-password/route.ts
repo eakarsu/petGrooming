@@ -1,10 +1,11 @@
+import { withAccess } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { compare, hash } from 'bcryptjs'
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Current and new passwords are required' }, { status: 400 })
     }
 
-    if (newPassword.length < 14) {
+    if (typeof newPassword !== 'string' || newPassword.length < 14 || Buffer.byteLength(newPassword,'utf8') > 72) {
       return NextResponse.json({ error: 'New password must be at least 14 characters' }, { status: 400 })
     }
 
@@ -45,3 +46,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to change password' }, { status: 500 })
   }
 }
+
+export const POST = withAccess(undefined, handlePOST)

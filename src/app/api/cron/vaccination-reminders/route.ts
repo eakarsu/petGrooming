@@ -1,3 +1,4 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkUpcomingVaccinations } from '@/lib/scheduler'
 
@@ -12,7 +13,7 @@ import { checkUpcomingVaccinations } from '@/lib/scheduler'
  *   "crons": [{ "path": "/api/cron/vaccination-reminders", "schedule": "0 8 * * *" }]
  * }
  */
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   // Validate the cron secret to prevent unauthorised triggers
   const secret = request.headers.get('x-cron-secret')
   const expectedSecret = process.env.CRON_SECRET
@@ -41,3 +42,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAccess(OFFICE, handleGET)

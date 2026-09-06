@@ -1,5 +1,6 @@
 'use client'
 
+import { useMutationFetch } from '@/hooks/use-mutation-fetch'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -63,15 +64,19 @@ interface BusinessSettings {
 }
 
 export default function POSPage() {
+  const [cashReceived,setCashReceived]=useState('')
+  const [giftCode,setGiftCode]=useState('')
+  const [discountReason,setDiscountReason]=useState('')
+  const mutationFetch = useMutationFetch()
   const [clients, setClients] = useState<Client[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [settings, setSettings] = useState<BusinessSettings>({ taxRate: 8, loyaltyPointsPerDollar: 1, loyaltyPointsValue: 0.01 })
+  const [settings, setSettings] = useState<BusinessSettings>({ taxRate: 0, loyaltyPointsPerDollar: 1, loyaltyPointsValue: 0.01 })
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   const [tip, setTip] = useState(0)
   const [discount, setDiscount] = useState(0)
-  const [paymentMethod, setPaymentMethod] = useState('CREDIT_CARD')
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
   const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
@@ -102,7 +107,7 @@ export default function POSPage() {
       if (settingsRes.ok) {
         const data = await settingsRes.json()
         setSettings({
-          taxRate: data.taxRate || 8,
+          taxRate: data.taxRate ?? 0,
           loyaltyPointsPerDollar: data.loyaltyPointsPerDollar || 1,
           loyaltyPointsValue: data.loyaltyPointsValue || 0.01,
         })
@@ -152,10 +157,10 @@ export default function POSPage() {
     setCart(cart.filter((item) => !(item.id === id && item.type === type)))
   }
 
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const discountAmount = subtotal * (discount / 100)
+  const subtotal = cart.reduce((sum, item) => sum + Math.round(item.price*100) * item.quantity, 0)/100
+  const discountAmount = Math.round(subtotal * discount)/100
   const taxRate = settings.taxRate / 100 // Convert percentage to decimal
-  const tax = (subtotal - discountAmount) * taxRate
+  const tax = Math.round((subtotal - discountAmount)*100 * taxRate)/100
   const total = subtotal - discountAmount + tax + tip
 
   const processPayment = async () => {
@@ -170,29 +175,30 @@ export default function POSPage() {
 
     setProcessing(true)
     try {
-      const res = await fetch('/api/transactions', {
+      const res = await mutationFetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: selectedClient.id,
-          items: cart,
-          subtotal,
-          tax,
-          discount: discountAmount,
+          items: cart.map(({id,type,quantity})=>({id,type,quantity})),
+          discountPercent: discount,
+          discountReason,
+          cashReceived: cashReceived ? Number(cashReceived) : undefined,
+          giftCardCode: giftCode || undefined,
           tip,
-          total,
+          expectedTotal: Math.round(total*100)/100,
           paymentMethod,
         }),
       })
 
       if (res.ok) {
-        toast.success('Payment processed successfully!')
+        const receipt=await res.json();toast.success(`Sale recorded. Receipt ${receipt.id}; change ${receipt.change.toFixed(2)}`)
         setCart([])
         setSelectedClient(null)
         setTip(0)
         setDiscount(0)
       } else {
-        toast.error('Payment failed')
+        toast.error((await res.json()).error || 'Payment failed')
       }
     } catch (error) {
       toast.error('Payment failed')
@@ -409,16 +415,16 @@ export default function POSPage() {
             {/* Payment Method */}
             <div className="space-y-2">
               <Label>Payment Method</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <label className="block">Discount reason<Input value={discountReason} onChange={e=>setDiscountReason(e.target.value)} /></label>{paymentMethod==='CASH'&&<label className="block">Cash received<Input type="number" min="0" step="0.01" value={cashReceived} onChange={e=>setCashReceived(e.target.value)}/></label>}{paymentMethod==='GIFT_CARD'&&<label className="block">Gift card code<Input value={giftCode} onChange={e=>setGiftCode(e.target.value)}/></label>}<p className="text-sm">Card payments use the provider-backed booking workflow.</p><Select value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="CREDIT_CARD">Credit Card</SelectItem>
-                  <SelectItem value="DEBIT_CARD">Debit Card</SelectItem>
+
+
                   <SelectItem value="GIFT_CARD">Gift Card</SelectItem>
-                  <SelectItem value="CHECK">Check</SelectItem>
+
                   <SelectItem value="LOYALTY_POINTS">Loyalty Points</SelectItem>
                 </SelectContent>
               </Select>

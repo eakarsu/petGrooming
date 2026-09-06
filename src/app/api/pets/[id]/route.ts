@@ -1,3 +1,4 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { z } from 'zod'
@@ -19,7 +20,7 @@ const petUpdateSchema = z.object({
 })
 
 // GET single pet
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -37,7 +38,7 @@ export async function GET(
         },
         groomingHistory: {
           include: {
-            groomer: true,
+            groomer: { select: { id: true, name: true, role: true, avatar: true } },
             photos: true,
           },
           orderBy: { createdAt: 'desc' },
@@ -66,7 +67,7 @@ export async function GET(
 }
 
 // PUT update pet
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -99,7 +100,7 @@ export async function PUT(
 }
 
 // DELETE pet (soft delete)
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -115,3 +116,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Failed to delete pet' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const PUT = withAccess(OFFICE, handlePUT)
+export const DELETE = withAccess(OFFICE, handleDELETE)

@@ -1,3 +1,4 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
@@ -11,7 +12,7 @@ function getTier(points: number) {
   return TIERS.find(t => points >= t.minPoints && points <= t.maxPoints) || TIERS[0]
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const clientId = searchParams.get('clientId')
@@ -107,3 +108,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAccess(OFFICE, handleGET)

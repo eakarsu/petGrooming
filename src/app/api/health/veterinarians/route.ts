@@ -1,7 +1,8 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function GET() {
+async function handleGET() {
   try {
     // Get unique veterinarian names from vaccination records
     const vaccinations = await db.vaccinationRecord.findMany({
@@ -50,3 +51,5 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to fetch veterinarians' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)

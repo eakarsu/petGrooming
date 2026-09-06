@@ -1,8 +1,9 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 // GET single service
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -28,7 +29,7 @@ export async function GET(
 }
 
 // PUT update service
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -48,7 +49,7 @@ export async function PUT(
 }
 
 // DELETE service (soft delete)
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -64,3 +65,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Failed to delete service' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const PUT = withAccess(MANAGEMENT, handlePUT)
+export const DELETE = withAccess(MANAGEMENT, handleDELETE)

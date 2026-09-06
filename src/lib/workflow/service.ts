@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient, ProviderKind, WorkflowJobStatus } from '@prisma/client'
+import { legacyConflicts } from '@/lib/operations/booking'
 import { appendWorkflowAudit, verifyWorkflowAudit } from './audit'
 import { OFFICE_ROLES, requireWorkflowActor, SUPERVISOR_ROLES } from './authz'
 import { WorkflowError } from './errors'
@@ -75,6 +76,7 @@ async function eligibleTechnician(
       bookingStatus: { in: [...ACTIVE_BOOKINGS] }, scheduledStart: { lt: input.end }, scheduledEnd: { gt: input.start },
     }, select: { id: true },
   })
+  if (await legacyConflicts(tx,input.technicianId,input.start,input.end)) throw new WorkflowError('OVERBOOKED', 'The technician has an overlapping counter appointment', 409)
   if (collision) throw new WorkflowError('OVERBOOKED', 'The technician already has an overlapping order', 409)
   return profile
 }

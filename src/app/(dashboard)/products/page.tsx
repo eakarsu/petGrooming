@@ -1,4 +1,5 @@
 'use client'
+import { useMutationFetch } from '@/hooks/use-mutation-fetch'
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -52,6 +53,7 @@ import { exportToCSV, exportToPDF } from '@/lib/export'
 import toast from 'react-hot-toast'
 
 interface Product {
+  updatedAt: string
   id: string
   name: string
   description: string | null
@@ -91,6 +93,8 @@ type SortField = 'name' | 'sku' | 'category' | 'price' | 'quantity' | 'isActive'
 type SortOrder = 'asc' | 'desc'
 
 export default function ProductsPage() {
+  const mutationFetch=useMutationFetch()
+  const [stockReason,setStockReason]=useState('')
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -224,10 +228,10 @@ export default function ProductsPage() {
         : '/api/products'
       const method = editingProduct ? 'PUT' : 'POST'
 
-      const res = await fetch(url, {
+      const res = await mutationFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({...formData,reason:stockReason,expectedUpdatedAt:editingProduct?.updatedAt}),
       })
 
       if (res.ok) {
@@ -235,7 +239,7 @@ export default function ProductsPage() {
         setDialogOpen(false)
         fetchProducts()
       } else {
-        toast.error('Failed to save product')
+        toast.error((await res.json()).error || 'Failed to save product')
       }
     } catch (error) {
       toast.error('Failed to save product')
@@ -246,7 +250,7 @@ export default function ProductsPage() {
     if (!confirm('Are you sure you want to delete this product?')) return
 
     try {
-      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' })
+      const res = await mutationFetch(`/api/products/${id}`, { method: 'DELETE' })
       if (res.ok) {
         toast.success('Product deleted')
         fetchProducts()
@@ -269,7 +273,7 @@ export default function ProductsPage() {
 
     try {
       const deletePromises = Array.from(selectedIds).map((id) =>
-        fetch(`/api/products/${id}`, { method: 'DELETE' })
+        mutationFetch(`/api/products/${id}`, { method: 'DELETE' })
       )
       const results = await Promise.all(deletePromises)
       const successCount = results.filter((r) => r.ok).length
@@ -846,7 +850,7 @@ export default function ProductsPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
+            <label>Stock adjustment reason<Input value={stockReason} onChange={e=>setStockReason(e.target.value)} /></label><Button onClick={handleSubmit}>
               {editingProduct ? 'Save Changes' : 'Create Product'}
             </Button>
           </DialogFooter>

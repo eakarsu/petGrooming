@@ -1,4 +1,5 @@
 'use client'
+import { useMutationFetch } from '@/hooks/use-mutation-fetch'
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -26,6 +27,7 @@ import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 interface AppointmentDetail {
+  updatedAt:string
   id: string
   scheduledDate: string
   scheduledTime: string
@@ -83,6 +85,7 @@ interface AppointmentDetail {
 }
 
 export default function AppointmentDetailPage() {
+  const mutationFetch=useMutationFetch()
   const params = useParams()
   const router = useRouter()
   const [appointment, setAppointment] = useState<AppointmentDetail | null>(null)
@@ -94,7 +97,7 @@ export default function AppointmentDetailPage() {
 
   const fetchAppointment = async () => {
     try {
-      const res = await fetch(`/api/appointments/${params.id}`)
+      const res = await mutationFetch(`/api/appointments/${params.id}`)
       if (res.ok) {
         const data = await res.json()
         setAppointment(data)
@@ -109,17 +112,17 @@ export default function AppointmentDetailPage() {
 
   const updateStatus = async (status: string) => {
     try {
-      const res = await fetch(`/api/appointments/${params.id}/status`, {
+      const res = await mutationFetch(`/api/appointments/${params.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({status,expectedUpdatedAt:appointment?.updatedAt,reason:['CANCELLED','NO_SHOW'].includes(status)?window.prompt('Reason for cancellation or no-show')??'':undefined}),
       })
 
       if (res.ok) {
         toast.success('Status updated')
         fetchAppointment()
       } else {
-        toast.error('Failed to update status')
+        toast.error((await res.json()).error || 'Failed to update status')
       }
     } catch (error) {
       toast.error('Failed to update status')

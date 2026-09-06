@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const enabled =
     process.env.NODE_ENV !== 'production' &&
-    process.env.ENABLE_DEMO_CREDENTIAL_AUTOFILL !== 'false'
+    process.env.ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true'
   const email = process.env.PROVISION_ADMIN_EMAIL
   const password = process.env.PROVISION_ADMIN_PASSWORD
 

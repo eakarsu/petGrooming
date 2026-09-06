@@ -1,3 +1,4 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { z } from 'zod'
@@ -20,7 +21,7 @@ const petSchema = z.object({
 })
 
 // GET all pets
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST create pet
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json()
     const validatedData = petSchema.parse(body)
@@ -125,3 +126,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create pet' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const POST = withAccess(OFFICE, handlePOST)

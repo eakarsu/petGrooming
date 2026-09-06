@@ -1,3 +1,4 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { z } from 'zod'
@@ -13,7 +14,7 @@ const serviceSchema = z.object({
 })
 
 // GET all services
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST create service
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json()
     const validatedData = serviceSchema.parse(body)
@@ -59,3 +60,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create service' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const POST = withAccess(MANAGEMENT, handlePOST)

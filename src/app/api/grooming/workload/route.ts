@@ -1,8 +1,9 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { startOfWeek, endOfWeek, addDays, format } from 'date-fns'
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const dateStr = searchParams.get('date')
@@ -76,3 +77,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAccess(undefined, handleGET)

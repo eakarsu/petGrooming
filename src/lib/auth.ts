@@ -4,6 +4,11 @@ import { compare } from 'bcryptjs'
 import { db } from './db'
 
 export const authOptions: NextAuthOptions = {
+  cookies: {
+    sessionToken: { name: 'petgroom.session-token', options: { httpOnly: true, sameSite: 'lax', path: '/', secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false } },
+    csrfToken: { name: 'petgroom.csrf-token', options: { httpOnly: true, sameSite: 'lax', path: '/', secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false } },
+    callbackUrl: { name: 'petgroom.callback-url', options: { sameSite: 'lax', path: '/', secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? false } },
+  },
   session: {
     strategy: 'jwt',
     maxAge: 8 * 60 * 60,

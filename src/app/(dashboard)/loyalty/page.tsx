@@ -1,4 +1,5 @@
 'use client'
+import { useMutationFetch } from '@/hooks/use-mutation-fetch'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -41,6 +42,8 @@ interface PackageInfo {
 }
 
 export default function LoyaltyPage() {
+  const [redeemReason,setRedeemReason] = useState('')
+  const mutationFetch = useMutationFetch()
   const router = useRouter()
   const [clients, setClients] = useState<ClientWithTier[]>([])
   const [packages, setPackages] = useState<PackageInfo[]>([])
@@ -95,10 +98,10 @@ export default function LoyaltyPage() {
     }
     setRedeemLoading(true)
     try {
-      const res = await fetch('/api/loyalty/redeem', {
+      const res = await mutationFetch('/api/loyalty/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: redeemClient.id, points: pts }),
+        body: JSON.stringify({ clientId: redeemClient.id, points: pts, description: redeemReason }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -513,7 +516,7 @@ export default function LoyaltyPage() {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleRedeemPoints} disabled={redeemLoading || !redeemPoints}>
+                <label>Redemption reason<Input value={redeemReason} onChange={e=>setRedeemReason(e.target.value)} /></label><Button onClick={handleRedeemPoints} disabled={redeemLoading || !redeemPoints}>
                   {redeemLoading ? 'Processing...' : 'Confirm Redeem'}
                 </Button>
               </DialogFooter>

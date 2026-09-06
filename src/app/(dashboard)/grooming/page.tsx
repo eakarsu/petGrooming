@@ -1,4 +1,6 @@
 'use client'
+import { useMutationFetch } from '@/hooks/use-mutation-fetch'
+import { localDate } from '@/lib/local-date'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -21,6 +23,7 @@ import { formatTime } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 interface GroomingAppointment {
+  updatedAt:string
   id: string
   scheduledTime: string
   status: string
@@ -31,6 +34,7 @@ interface GroomingAppointment {
 }
 
 export default function GroomingPage() {
+  const mutationFetch=useMutationFetch()
   const router = useRouter()
   const [appointments, setAppointments] = useState<GroomingAppointment[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,7 +58,7 @@ export default function GroomingPage() {
 
   const fetchTodayAppointments = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = localDate()
       const res = await fetch(`/api/appointments?date=${today}`)
       if (res.ok) {
         const data = await res.json()
@@ -70,17 +74,17 @@ export default function GroomingPage() {
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      const res = await fetch(`/api/appointments/${id}/status`, {
+      const res = await mutationFetch(`/api/appointments/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({status,expectedUpdatedAt:appointments.find(a=>a.id===id)?.updatedAt,reason:['CANCELLED','NO_SHOW'].includes(status)?window.prompt('Reason for cancellation or no-show')??'':undefined}),
       })
 
       if (res.ok) {
         toast.success('Status updated')
         fetchTodayAppointments()
       } else {
-        toast.error('Failed to update status')
+        toast.error((await res.json()).error || 'Failed to update status')
       }
     } catch (error) {
       toast.error('Failed to update status')

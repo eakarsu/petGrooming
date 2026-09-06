@@ -1,9 +1,10 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-export async function GET() {
+async function handleGET() {
   try {
     const incidents = await db.incident.findMany({
       include: {
@@ -22,7 +23,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -54,3 +55,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create incident' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const POST = withAccess(OFFICE, handlePOST)

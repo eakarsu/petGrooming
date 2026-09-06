@@ -1,4 +1,5 @@
 'use client'
+import { useMutationFetch } from '@/hooks/use-mutation-fetch'
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -57,6 +58,9 @@ interface Groomer {
 }
 
 export default function NewAppointmentPage() {
+  const mutationFetch=useMutationFetch()
+  const [repeatCount,setRepeatCount]=useState(1)
+  const [repeatInterval,setRepeatInterval]=useState(1)
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedClientId = searchParams.get('clientId')
@@ -163,10 +167,10 @@ export default function NewAppointmentPage() {
   const onSubmit = async (data: AppointmentFormData) => {
     setLoading(true)
     try {
-      const res = await fetch('/api/appointments', {
+      const res = await mutationFetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({...data,isRecurring:repeatCount>1,recurrenceRule:repeatCount>1?`FREQ=WEEKLY;INTERVAL=${repeatInterval};COUNT=${repeatCount}`:undefined}),
       })
 
       if (res.ok) {
@@ -375,7 +379,7 @@ export default function NewAppointmentPage() {
               Cancel
             </Button>
           </Link>
-          <Button type="submit" loading={loading}>
+          <label>Occurrences (1 for a single booking)<Input type="number" min="1" max="24" value={repeatCount} onChange={e=>setRepeatCount(Number(e.target.value))}/></label><label>Weeks between visits<Input type="number" min="1" max="12" value={repeatInterval} onChange={e=>setRepeatInterval(Number(e.target.value))}/></label><Button type="submit" loading={loading}>
             Book Appointment
           </Button>
         </div>

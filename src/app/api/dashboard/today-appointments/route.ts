@@ -1,18 +1,18 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { startOfDay, endOfDay } from 'date-fns'
+import { dayBounds } from '@/lib/operations/time'
 
-export async function GET() {
+async function handleGET() {
   try {
-    const today = new Date()
-    const startToday = startOfDay(today)
-    const endToday = endOfDay(today)
+    const settings = await db.businessSettings.findUnique({where:{id:'default'}})
+    const {start:startToday,end:endToday}=dayBounds(new Date(),settings?.timezone??'America/New_York')
 
     const appointments = await db.appointment.findMany({
       where: {
         scheduledDate: {
           gte: startToday,
-          lte: endToday,
+          lt: endToday,
         },
       },
       include: {
@@ -28,6 +28,7 @@ export async function GET() {
           },
         },
       },
+      take: 200,
       orderBy: {
         scheduledTime: 'asc',
       },
@@ -52,3 +53,5 @@ export async function GET() {
     )
   }
 }
+
+export const GET = withAccess(undefined, handleGET)

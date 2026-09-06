@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
-const publicPrefixes = ['/auth/login', '/api/auth', '/api/health/', '/api/workflow/webhooks/']
+const publicPrefixes = ['/auth/login', '/api/auth', '/api/workflow/webhooks/']
 const retiredPublicAuth = ['/api/auth/register', '/api/auth/forgot-password', '/api/auth/reset-password']
 
 export async function middleware(request: NextRequest) {
@@ -21,8 +21,9 @@ export async function middleware(request: NextRequest) {
     const origin = request.headers.get('origin')
     if (origin && origin !== request.nextUrl.origin && !allowed.includes(origin)) return NextResponse.json({ error: 'Origin is not allowed' }, { status: 403 })
   }
+  if (['/api/health/live', '/api/health/ready'].includes(request.nextUrl.pathname)) return nextPage()
   if (publicPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) return nextPage()
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET, cookieName: 'petgroom.session-token' })
   if (token && !(token as any).invalid) return nextPage()
   if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   const login = new URL('/auth/login', request.url)

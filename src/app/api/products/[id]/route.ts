@@ -1,61 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-
-// GET single product
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const product = await db.product.findUnique({
-      where: { id: (await params).id },
-    })
-
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-    }
-
-    return NextResponse.json(product)
-  } catch (error) {
-    console.error('Get product error:', error)
-    return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 })
-  }
-}
-
-// PUT update product
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const body = await request.json()
-
-    const product = await db.product.update({
-      where: { id: (await params).id },
-      data: body,
-    })
-
-    return NextResponse.json(product)
-  } catch (error) {
-    console.error('Update product error:', error)
-    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
-  }
-}
-
-// DELETE product (soft delete)
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    await db.product.update({
-      where: { id: (await params).id },
-      data: { isActive: false },
-    })
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Delete product error:', error)
-    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
-  }
-}
+import { MANAGEMENT } from '@/lib/operations/access'
+import { endpoint,readJson,mutate,OperationError,audit } from '@/lib/operations/core'
+import { productSchema,saveProduct } from '@/lib/operations/inventory'
+type Context={params:Promise<{id:string}>}
+export const GET=endpoint<Context>(undefined,async(_request,_actor,context)=>{const product=await db.product.findUnique({where:{id:(await context.params).id}});if(!product)throw new OperationError('Product not found',404);return product})
+export const PUT=endpoint<Context>(MANAGEMENT,async(request,actor,context)=>{const id=(await context.params).id,input=productSchema.parse(await readJson(request));return mutate(actor.id,request.headers.get('Idempotency-Key'),'product.update',{id,...input},tx=>saveProduct(tx,actor.id,id,input),MANAGEMENT)})
+export const DELETE=endpoint<Context>(MANAGEMENT,async(request,actor,context)=>{const id=(await context.params).id;return mutate(actor.id,request.headers.get('Idempotency-Key'),'product.archive',{id},async tx=>{const changed=await tx.product.updateMany({where:{id,reservedQuantity:0},data:{isActive:false}});if(!changed.count)throw new OperationError('Product is missing or has reserved stock',409);await audit(tx,actor.id,'product.archive',id,{});return {success:true}},MANAGEMENT)})

@@ -1,4 +1,5 @@
 'use client'
+import { useMutationFetch } from '@/hooks/use-mutation-fetch'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,6 +41,9 @@ interface GiftCard {
 }
 
 export default function GiftCardsPage() {
+  const [createReason,setCreateReason] = useState('')
+  const [redeemReason,setRedeemReason] = useState('')
+  const mutationFetch = useMutationFetch()
   const [giftCards, setGiftCards] = useState<GiftCard[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -69,7 +73,7 @@ export default function GiftCardsPage() {
   const fetchGiftCards = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/gift-cards')
+      const res = await mutationFetch('/api/gift-cards')
       const data = await res.json()
       setGiftCards(data.giftCards ?? [])
     } catch (err) {
@@ -109,12 +113,13 @@ export default function GiftCardsPage() {
     }
     setCreateLoading(true)
     try {
-      const res = await fetch('/api/gift-cards', {
+      const res = await mutationFetch('/api/gift-cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount,
-          expiresAt: createExpiry || undefined,
+          expiresAt: createExpiry ? new Date(createExpiry+'T23:59:59Z').toISOString() : undefined,
+          reason: createReason,
           recipientName: createRecipientName || undefined,
           recipientEmail: createRecipientEmail || undefined,
         }),
@@ -148,12 +153,13 @@ export default function GiftCardsPage() {
     if (!redeemCode.trim()) return
     setRedeemLoading(true)
     try {
-      const res = await fetch('/api/gift-cards/redeem', {
+      const res = await mutationFetch('/api/gift-cards/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: redeemCode.trim().toUpperCase(),
           amount: redeemAmount ? parseFloat(redeemAmount) : undefined,
+          reason: redeemReason,
         }),
       })
       const data = await res.json()
@@ -436,7 +442,7 @@ export default function GiftCardsPage() {
                 <Button variant="outline" onClick={closeCreate} disabled={createLoading}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreate} disabled={createLoading}>
+                <label className="block">Issuance reason / payment reference<Input value={createReason} onChange={e=>setCreateReason(e.target.value)} placeholder="Record the reason or collected-payment reference" /></label><p className="text-sm">Manual issuance adds stored value. It does not collect a payment.</p><Button onClick={handleCreate} disabled={createLoading}>
                   {createLoading ? 'Issuing...' : 'Issue Gift Card'}
                 </Button>
               </DialogFooter>
@@ -519,9 +525,9 @@ export default function GiftCardsPage() {
                 {redeemResult?.success ? 'Close' : 'Cancel'}
               </Button>
               {!redeemResult?.success && (
-                <Button onClick={handleRedeem} disabled={redeemLoading || !redeemCode.trim()}>
+                <><label className="block">Redemption reason<Input value={redeemReason} onChange={e=>setRedeemReason(e.target.value)} /></label><Button onClick={handleRedeem} disabled={redeemLoading || !redeemCode.trim()}>
                   {redeemLoading ? 'Processing...' : 'Redeem'}
-                </Button>
+                </Button></>
               )}
             </DialogFooter>
           </div>

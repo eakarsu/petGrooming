@@ -1,7 +1,8 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function GET() {
+async function handleGET() {
   try {
     const packages = await db.servicePackage.findMany({
       where: { isActive: true },
@@ -53,7 +54,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json()
     const { name, description, price, serviceIds } = body
@@ -81,3 +82,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const POST = withAccess(MANAGEMENT, handlePOST)

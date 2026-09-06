@@ -1,3 +1,4 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { z } from 'zod'
@@ -19,7 +20,7 @@ const healthAlertSchema = z.object({
   description: z.string().min(1, 'Description is required'),
 })
 
-export async function GET() {
+async function handleGET() {
   try {
     const alerts = await db.healthAlert.findMany({
       include: {
@@ -42,7 +43,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json()
     const validatedData = healthAlertSchema.parse(body)
@@ -75,3 +76,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create health alert' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
+export const POST = withAccess(OFFICE, handlePOST)

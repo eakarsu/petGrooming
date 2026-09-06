@@ -1,0 +1,18 @@
+'use client'
+import { useEffect,useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { useMutationFetch } from '@/hooks/use-mutation-fetch'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+export default function ReceiptsPage(){
+ const {data:session}=useSession();const manager=['ADMIN','MANAGER'].includes(session?.user.role??'')
+ const [rows,setRows]=useState<any[]>([]),[error,setError]=useState(''),[selected,setSelected]=useState<any>(null),[reason,setReason]=useState(''),[confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false)
+ const mutate=useMutationFetch()
+ async function load(){setError('');try{const r=await fetch('/api/transactions');const d=await r.json();if(!r.ok)throw Error(d.error);setRows(d)}catch(e){setError(String(e))}}
+ useEffect(()=>{void load()},[])
+ const amount=(row:any,n:number)=>new Intl.NumberFormat(undefined,{style:'currency',currency:row.currency??'USD'}).format(n)
+ async function refund(){setBusy(true);setError('');try{const r=await mutate('/api/transactions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({transactionId:selected.id,reason,cashReturnedConfirmed:confirmed})});const d=await r.json();if(!r.ok)throw Error(d.error);setSelected(null);setReason('');setConfirmed(false);await load()}catch(e){setError(String(e))}finally{setBusy(false)}}
+ return <div className="space-y-6"><h1 className="text-3xl font-bold">Counter receipts and refunds</h1><p>Latest 100 counter transactions. Historical records without verification are labeled separately. Refunds return the original tender and reverse loyalty points; product returns require a reviewed stock adjustment.</p>{error&&<p role="alert" className="text-red-700">{error}</p>}<Button variant="outline" onClick={load}>Refresh</Button>
+ {selected&&<form className="border rounded p-5 space-y-3" onSubmit={e=>{e.preventDefault();void refund()}}><h2 className="font-semibold">Full refund · {amount(selected,selected.total)}</h2><p>{selected.id} · {selected.paymentMethod}</p><label>Reason<Input required minLength={5} value={reason} onChange={e=>setReason(e.target.value)}/></label>{selected.paymentMethod==='CASH'&&<label className="block"><input required type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> I have returned the full cash amount to the customer.</label>}<Button disabled={busy} type="submit">Record refund</Button> <Button type="button" variant="outline" onClick={()=>setSelected(null)}>Cancel</Button></form>}
+ <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr>{['Receipt / date','Client','Tender','Amount','Status','Actions'].map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead><tbody>{rows.map(row=><tr key={row.id} className="border-t"><td className="p-3"><details><summary>{row.id}<br/>{new Date(row.createdAt).toLocaleString()}</summary><ul>{row.items.map((i:any)=><li key={i.id}>{i.quantity} × {i.service?.name??i.product?.name??i.package?.name??i.itemType} · {amount(row,i.total)}</li>)}</ul><p>Subtotal {amount(row,row.subtotal)} · Tax {amount(row,row.tax)} · Discount {amount(row,row.discount)} · Tip {amount(row,row.tip)} · Staff {row.staff?.name}</p></details></td><td>{row.client.firstName} {row.client.lastName}</td><td>{row.paymentMethod}</td><td>{amount(row,row.total)}</td><td>{row.verifiedAt?row.paymentStatus:'Historical · unverified'}</td><td>{manager&&row.verifiedAt&&row.paymentStatus==='COMPLETED'&&<Button variant="outline" onClick={()=>{setSelected(row);setReason('');setConfirmed(false)}}>Full refund</Button>}</td></tr>)}</tbody></table>{!rows.length&&<p>No receipts found.</p>}</div></div>
+}

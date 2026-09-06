@@ -448,6 +448,10 @@ model SpecialHandlingFee {
 
 // ============== POINT OF SALE ==============
 model Transaction {
+  currency String?
+  verifiedAt DateTime?
+  totalCents Int?
+  refundedCents Int @default(0)
   id       String @id @default(cuid())
   clientId String
   client   Client @relation(fields: [clientId], references: [id])
@@ -567,6 +571,8 @@ enum ProductCategory {
 }
 
 model GiftCard {
+  balanceCents Int @default(0)
+  initialCents Int @default(0)
   id             String    @id @default(cuid())
   code           String    @unique
   initialBalance Float
@@ -694,6 +700,7 @@ model AISocialPost {
 
 // ============== SETTINGS ==============
 model BusinessSettings {
+  taxConfigured Boolean @default(false)
   id           String  @id @default(cuid())
   businessName String
   address      String?
@@ -1469,4 +1476,82 @@ model WorkflowAuditEvent {
   @@index([orderId, createdAt, id])
   @@index([quoteId, createdAt, id])
   @@map("workflow_audit_events")
+}
+
+// Retry receipts and immutable balance journals for legacy operational workflows.
+model PetOperation {
+  id        String @id
+  actorId   String
+  action    String
+  inputHash String
+  response  Json
+  createdAt DateTime @default(now())
+  @@index([actorId, createdAt])
+}
+
+model PetBalanceEntry {
+  id           String @id @default(cuid())
+  accountType  String
+  accountId    String
+  delta        Int
+  balanceAfter Int
+  actorId      String
+  reason       String
+  reference    String?
+  createdAt    DateTime @default(now())
+  @@index([accountType, accountId, createdAt])
+}
+
+model PetAudit {
+  id        String @id @default(cuid())
+  actorId   String
+  action    String
+  entityId  String
+  details   Json
+  createdAt DateTime @default(now())
+  @@index([entityId, createdAt])
+}
+
+model PetKnowledge {
+  id String @id @default(cuid())
+  title String
+  content String
+  version Int @default(1)
+  actorId String
+  approvedById String?
+  approvedAt DateTime?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PetAiDraft {
+  id String @id @default(cuid())
+  actorId String
+  petId String?
+  task String
+  instructions String
+  knowledgeIds Json
+  sourceSnapshot Json
+  sourceHash String
+  status String @default("PENDING")
+  output Json?
+  providerRef String?
+  model String?
+  inputTokens Int?
+  outputTokens Int?
+  costUsd Decimal? @db.Decimal(12, 6)
+  error String?
+  photoBytes Bytes?
+  photoType String?
+  photoHash String?
+  photoConsent String?
+  photoDeletedAt DateTime?
+  reviewedById String?
+  reviewNotes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([actorId, createdAt])
+  @@index([petId, status])
+  @@index([status, createdAt])
 }

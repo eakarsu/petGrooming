@@ -118,7 +118,7 @@ export default function HealthSafetyPage() {
     location: '',
     actionsTaken: '',
   })
-  const [activeTab, setActiveTab] = useState('vaccinations')
+  const [activeTab, setActiveTab] = useState('health')
   const [pets, setPets] = useState<Pet[]>([])
   const [veterinarians, setVeterinarians] = useState<string[]>([])
 

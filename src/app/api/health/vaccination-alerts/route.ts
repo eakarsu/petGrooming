@@ -1,8 +1,9 @@
+import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { addDays } from 'date-fns'
 
-export async function GET() {
+async function handleGET() {
   try {
     const thirtyDaysFromNow = addDays(new Date(), 30)
 
@@ -47,3 +48,5 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to fetch alerts' }, { status: 500 })
   }
 }
+
+export const GET = withAccess(undefined, handleGET)
