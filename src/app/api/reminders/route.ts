@@ -137,6 +137,10 @@ async function handlePOST(request: NextRequest) {
     const body = await request.json()
     const { petId, clientId, message, type } = body
 
+    if (typeof message !== 'string' || !message.trim()) {
+      return NextResponse.json({ error: 'message is required' }, { status: 400 })
+    }
+
     // Fetch client details for delivery
     const client = await db.client.findUnique({
       where: { id: clientId },
@@ -147,7 +151,16 @@ async function handlePOST(request: NextRequest) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 
+    const pet = await db.pet.findFirst({
+      where: { id: petId, clientId },
+      select: { id: true },
+    })
+    if (!pet) {
+      return NextResponse.json({ error: 'Pet not found for this client' }, { status: 404 })
+    }
+
     const deliveryResults: string[] = []
+    const failures: string[] = []
 
     // Send email reminder
     const emailResult = await sendEmail(
@@ -156,25 +169,31 @@ async function handlePOST(request: NextRequest) {
       `<p>Dear ${client.firstName},</p><p>${message}</p><p>— The PetGroom Pro Team</p>`
     )
     if (emailResult.success) deliveryResults.push('EMAIL')
+    else failures.push(`email: ${emailResult.error ?? 'send failed'}`)
 
     // Send SMS if phone is available
-    let sentVia = 'EMAIL'
     if (client.phone) {
       const smsResult = await sendSMS(client.phone, message)
-      if (smsResult.success) {
-        deliveryResults.push('SMS')
-        sentVia = deliveryResults.length > 1 ? 'BOTH' : 'SMS'
-      }
+      if (smsResult.success) deliveryResults.push('SMS')
+      else failures.push(`sms: ${smsResult.error ?? 'send failed'}`)
     }
 
-    // Save reminder to history
+    // No channel delivered: fail honestly instead of recording a phantom reminder.
+    if (deliveryResults.length === 0) {
+      return NextResponse.json(
+        { error: 'Reminder could not be delivered', failures },
+        { status: 502 }
+      )
+    }
+
+    // Save reminder to history using only channels that actually delivered.
     const reminder = await db.reminderHistory.create({
       data: {
-        petId,
+        petId: pet.id,
         clientId,
         type: type || 'GENERAL',
         message,
-        sentVia,
+        sentVia: deliveryResults.length === 2 ? 'BOTH' : deliveryResults[0],
         sentAt: new Date(),
       },
       include: {
@@ -185,7 +204,9 @@ async function handlePOST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Reminder sent via ${deliveryResults.join(' & ') || 'saved (delivery failed)'}`,
+      message: `Reminder sent via ${deliveryResults.join(' & ')}${failures.length ? ` (${failures.join('; ')})` : ''}`,
+      sentVia: reminder.sentVia,
+      failures,
       reminder: {
         id: reminder.id,
         pet: reminder.pet,

@@ -12,12 +12,17 @@ import { addDays, format } from 'date-fns'
 export async function checkUpcomingVaccinations(daysAhead = 7): Promise<{
   checked: number
   reminded: number
+  emailSent: number
+  smsSent: number
+  failed: number
   errors: string[]
 }> {
   const now = new Date()
   const cutoff = addDays(now, daysAhead)
   const errors: string[] = []
   let reminded = 0
+  let emailSent = 0
+  let smsSent = 0
 
   // Find vaccination records expiring within the next `daysAhead` days
   const records = await db.vaccinationRecord.findMany({
@@ -66,38 +71,65 @@ export async function checkUpcomingVaccinations(daysAhead = 7): Promise<{
       `<p>Please schedule an appointment with your veterinarian at your earliest convenience.</p>` +
       `<p>— The PetGroom Pro Team</p>`
 
-    try {
-      // Email
-      await sendEmail(
-        client.email,
-        `Vaccination Reminder: ${pet.name}'s ${record.vaccineName} is due ${dueDate}`,
-        htmlBody
-      )
+    const channels: string[] = []
+    const failures: string[] = []
 
-      // SMS (if phone available)
-      if (client.phone) {
-        await sendSMS(client.phone, messageText)
+    // Email
+    const emailResult = await sendEmail(
+      client.email,
+      `Vaccination Reminder: ${pet.name}'s ${record.vaccineName} is due ${dueDate}`,
+      htmlBody
+    )
+    if (emailResult.success) {
+      channels.push('EMAIL')
+      emailSent++
+    } else {
+      failures.push(`email: ${emailResult.error ?? 'send failed'}`)
+    }
+
+    // SMS (if phone available)
+    if (client.phone) {
+      const smsResult = await sendSMS(client.phone, messageText)
+      if (smsResult.success) {
+        channels.push('SMS')
+        smsSent++
+      } else {
+        failures.push(`sms: ${smsResult.error ?? 'send failed'}`)
       }
+    }
 
-      // Log to ReminderHistory
+    // A reminder is only recorded when at least one channel actually delivered.
+    if (channels.length === 0) {
+      const msg = failures.join('; ')
+      errors.push(`Pet ${pet.name} (${record.vaccineName}): ${msg}`)
+      console.error('Vaccination reminder error:', msg)
+      continue
+    }
+
+    try {
       await db.reminderHistory.create({
         data: {
           petId: pet.id,
           clientId: client.id,
           type: 'VACCINATION',
           message: messageText,
-          sentVia: client.phone ? 'BOTH' : 'EMAIL',
+          sentVia: channels.length === 2 ? 'BOTH' : channels[0],
           sentAt: new Date(),
         },
       })
-
-      reminded++
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      errors.push(`Pet ${pet.name} (${record.vaccineName}): ${msg}`)
-      console.error('Vaccination reminder error:', msg)
+      errors.push(`Pet ${pet.name} (${record.vaccineName}): reminder delivered but history write failed: ${msg}`)
+      console.error('Vaccination reminder history error:', msg)
+      continue
+    }
+
+    reminded++
+
+    if (failures.length > 0) {
+      errors.push(`Pet ${pet.name} (${record.vaccineName}): delivered via ${channels.join(', ')}; ${failures.join('; ')}`)
     }
   }
 
-  return { checked: records.length, reminded, errors }
+  return { checked: records.length, reminded, emailSent, smsSent, failed: records.length - reminded, errors }
 }

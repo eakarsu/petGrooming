@@ -1,4 +1,3 @@
-import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkUpcomingVaccinations } from '@/lib/scheduler'
 
@@ -7,14 +6,14 @@ import { checkUpcomingVaccinations } from '@/lib/scheduler'
  *
  * Trigger this route from a cron service (Vercel Cron, GitHub Actions, etc.).
  * Protect it with a shared secret via the CRON_SECRET environment variable.
+ * This is a machine endpoint: it does not require a staff session, only the secret.
  *
  * Example vercel.json entry:
  * {
  *   "crons": [{ "path": "/api/cron/vaccination-reminders", "schedule": "0 8 * * *" }]
  * }
  */
-async function handleGET(request: NextRequest) {
-  // Validate the cron secret to prevent unauthorised triggers
+export function authorizeCronRequest(request: NextRequest): NextResponse | null {
   const secret = request.headers.get('x-cron-secret')
   const expectedSecret = process.env.CRON_SECRET
 
@@ -22,6 +21,13 @@ async function handleGET(request: NextRequest) {
   if (secret !== expectedSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  return null
+}
+
+export async function GET(request: NextRequest) {
+  const denied = authorizeCronRequest(request)
+  if (denied) return denied
 
   try {
     const daysAheadParam = request.nextUrl.searchParams.get('daysAhead')
@@ -32,7 +38,7 @@ async function handleGET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       ...result,
-      message: `Checked ${result.checked} vaccination records, sent ${result.reminded} reminders`,
+      message: `Checked ${result.checked} vaccination records, delivered ${result.reminded} reminders (${result.emailSent} email, ${result.smsSent} SMS), ${result.failed} failed`,
     })
   } catch (error) {
     console.error('Vaccination reminder cron error:', error)
@@ -42,5 +48,3 @@ async function handleGET(request: NextRequest) {
     )
   }
 }
-
-export const GET = withAccess(OFFICE, handleGET)

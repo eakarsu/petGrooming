@@ -74,7 +74,7 @@ export default function RemindersPage() {
     setSendingReminder(true)
 
     try {
-      await fetch('/api/reminders', {
+      const res = await fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -84,14 +84,22 @@ export default function RemindersPage() {
           type: selectedReminder.type,
         }),
       })
-      toast.success('Reminder sent! Click "Sent History" tab to view.')
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok || !data?.success) {
+        toast.error(data?.error || 'Failed to send reminder')
+        return
+      }
+
+      toast.success(data.message || 'Reminder sent! Click "Sent History" tab to view.')
       setSelectedReminder(null)
       setMessagePreview('')
       await fetchReminders()
     } catch (error) {
       toast.error('Failed to send reminder')
+    } finally {
+      setSendingReminder(false)
     }
-    setSendingReminder(false)
   }
 
   const getPriorityBadge = (priority: string) => {

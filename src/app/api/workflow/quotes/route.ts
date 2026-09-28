@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     const actor = await requireApiActor(['ADMIN', 'MANAGER', 'RECEPTIONIST'])
     const body = await request.json()
-    const quote = await requestQuote(db, { actorId: actor.id, ...body })
+    const quote = await requestQuote(db, { ...body, actorId: actor.id })
     return NextResponse.json(quote, { status: quote.status === 'DRAFT' ? 202 : 200 })
   } catch (error) { return workflowResponse(error) }
 }

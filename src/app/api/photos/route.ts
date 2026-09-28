@@ -1,10 +1,30 @@
-import { withAccess, OFFICE, MANAGEMENT } from '@/lib/operations/access'
+import { withAccess, OFFICE } from '@/lib/operations/access'
+import { requireApiActor } from '@/lib/workflow/api'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { uploadImage } from '@/lib/cloudinary'
 
+const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024
+
+function validatedPhotoUrl(value: unknown): string | null {
+  try {
+    const url = new URL(String(value))
+    if (url.protocol !== 'https:') return null
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+    if (cloudName) {
+      if (url.hostname !== 'res.cloudinary.com') return null
+      if (!url.pathname.startsWith(`/${cloudName}/image/upload/`)) return null
+    }
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
 async function handleGET(request: NextRequest) {
   try {
+    const actor = await requireApiActor()
     const searchParams = request.nextUrl.searchParams
     const petId = searchParams.get('petId')
     const groomerId = searchParams.get('groomerId')
@@ -19,6 +39,11 @@ async function handleGET(request: NextRequest) {
 
     if (groomerId) {
       where.session = { groomerId }
+    }
+
+    // Groomers only see photos from sessions they performed; office staff see all.
+    if (actor.role === 'GROOMER') {
+      where.session = { ...(where.session ?? {}), groomerId: actor.id }
     }
 
     if (startDate || endDate) {
@@ -95,15 +120,21 @@ async function handlePOST(request: NextRequest) {
       const formData = await request.formData()
       const file = formData.get('file') as File | null
 
-      if (!file) {
+      if (!file || file.size === 0) {
         return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      }
+      if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+        return NextResponse.json({ error: 'Photo must be a JPEG, PNG, WebP, or GIF image' }, { status: 415 })
+      }
+      if (file.size > MAX_PHOTO_BYTES) {
+        return NextResponse.json({ error: 'Photo exceeds the 10 MB limit' }, { status: 413 })
       }
 
       petId = (formData.get('petId') as string) ?? ''
       caption = (formData.get('caption') as string) ?? undefined
       isBefore = formData.get('isBefore') === 'true'
       isAfter = formData.get('isAfter') === 'true'
-      sessionId = (formData.get('sessionId') as string) ?? undefined
+      sessionId = (formData.get('sessionId') as string) || undefined
 
       if (!petId) {
         return NextResponse.json({ error: 'petId is required' }, { status: 400 })
@@ -126,21 +157,43 @@ async function handlePOST(request: NextRequest) {
     } else {
       // Legacy JSON path (url already provided)
       const body = await request.json()
-      ;({ petId, caption, isBefore, isAfter, sessionId } = body)
-      photoUrl = body.url
+      ;({ petId, caption, isBefore, isAfter } = body)
+      sessionId = body.sessionId || undefined
 
-      if (!photoUrl) {
-        return NextResponse.json({ error: 'url is required' }, { status: 400 })
+      if (!petId) {
+        return NextResponse.json({ error: 'petId is required' }, { status: 400 })
+      }
+
+      const validatedUrl = validatedPhotoUrl(body.url)
+      if (!validatedUrl) {
+        return NextResponse.json({ error: 'url must be an HTTPS image URL from the configured image host' }, { status: 400 })
+      }
+      photoUrl = validatedUrl
+    }
+
+    if (caption !== undefined && typeof caption === 'string' && caption.length > 500) {
+      return NextResponse.json({ error: 'caption must be at most 500 characters' }, { status: 400 })
+    }
+
+    // The photo must belong to a real pet, and any claimed session must be that pet's session.
+    const pet = await db.pet.findFirst({ where: { id: petId, isActive: true }, select: { id: true } })
+    if (!pet) {
+      return NextResponse.json({ error: 'Pet not found' }, { status: 404 })
+    }
+    if (sessionId) {
+      const session = await db.groomingSession.findFirst({ where: { id: sessionId, petId: pet.id }, select: { id: true } })
+      if (!session) {
+        return NextResponse.json({ error: 'Grooming session does not belong to this pet' }, { status: 409 })
       }
     }
 
     const photo = await db.petPhoto.create({
       data: {
-        petId,
+        petId: pet.id,
         url: photoUrl,
         caption,
-        isBefore: isBefore || false,
-        isAfter: isAfter || false,
+        isBefore: Boolean(isBefore),
+        isAfter: Boolean(isAfter),
         sessionId,
       },
     })

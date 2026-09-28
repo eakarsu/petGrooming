@@ -301,6 +301,7 @@ async function transitionJobTx(tx: Prisma.TransactionClient, input: ActorInput &
   let bookingStatus = order.bookingStatus
   let deliveredCents = order.deliveredCents
   if (input.status === 'NO_SHOW') {
+    if (order.scheduledStart > new Date()) throw new WorkflowError('APPOINTMENT_NOT_STARTED', 'This appointment has not started yet', 409)
     bookingStatus = 'NO_SHOW'
     await releaseInventory(tx, order.id, `job:${order.id}:no-show`, false)
   } else if (input.status === 'CANCELLED') {
@@ -352,8 +353,12 @@ export async function initiatePayment(prisma: PrismaClient, input: ActorInput & 
     const invoice = await tx.workflowInvoice.findUnique({ where: { id: input.invoiceId }, include: { order: true } })
     if (!invoice || !['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status)) throw new WorkflowError('INVOICE_NOT_PAYABLE', 'Invoice is not payable', 409)
     const amountCents = positiveCents(input.amountCents, 'amountCents')
-    const due = invoice.totalCents - invoice.paidCents
-    if (amountCents > due) throw new WorkflowError('PAYMENT_AMOUNT_INVALID', 'Payment exceeds the invoice balance', 409)
+    const inFlight = await tx.workflowPayment.aggregate({
+      where: { invoiceId: invoice.id, status: 'PENDING' },
+      _sum: { amountCents: true },
+    })
+    const due = invoice.totalCents - invoice.paidCents - (inFlight._sum.amountCents || 0)
+    if (amountCents > due) throw new WorkflowError('PAYMENT_AMOUNT_INVALID', 'Payment exceeds the remaining invoice balance', 409)
     const payment = await tx.workflowPayment.create({ data: { invoiceId: invoice.id, amountCents, idempotencyKey: text(input.idempotencyKey, 'idempotencyKey', 200) } })
     await queueIntegrationOperation(tx, { kind: 'PAYMENT', connectorId: input.paymentConnectorId, operationType: 'PAYMENT_CHARGE', aggregateType: 'PAYMENT', aggregateId: payment.id, idempotencyKey: `provider:${payment.idempotencyKey}`, payload: { paymentId: payment.id, invoiceId: invoice.id, amountCents, currency: invoice.currency } })
     await appendWorkflowAudit(tx, { orderId: invoice.orderId, actorId: input.actorId, action: 'PAYMENT_REQUESTED', payload: { paymentId: payment.id, amountCents } })
@@ -398,8 +403,10 @@ export async function applyOfflineCommand(prisma: PrismaClient, input: ActorInpu
   return prisma.$transaction(async (tx) => {
     const existing = await tx.offlineCommand.findUnique({ where: { deviceId_clientCommandId: { deviceId: input.deviceId, clientCommandId: input.clientCommandId } } })
     if (existing) return { duplicate: true, command: existing }
+    if (!Number.isInteger(input.expectedVersion) || input.expectedVersion < 1) throw new WorkflowError('VALIDATION_ERROR', 'expectedVersion must be a positive integer')
     const order = await tx.groomingOrder.findUnique({ where: { id: input.orderId } })
     if (!order) throw new WorkflowError('ORDER_NOT_FOUND', 'Grooming order was not found', 404)
+    await requireOrderOperator(tx, order.id, input.actorId)
     if (order.version !== input.expectedVersion) {
       const conflict = await tx.offlineCommand.create({ data: { orderId: order.id, actorId: input.actorId, deviceId: text(input.deviceId, 'deviceId', 200), clientCommandId: text(input.clientCommandId, 'clientCommandId', 200), expectedVersion: input.expectedVersion, command: input.command, payload: { deliveredCents: input.deliveredCents || null }, status: 'CONFLICT', result: { currentVersion: order.version, currentStatus: order.jobStatus } } })
       return { duplicate: false, conflict: true, command: conflict }

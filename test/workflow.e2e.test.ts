@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import test from 'node:test'
+import { NextRequest } from 'next/server'
 import { PrismaClient, type ProviderKind } from '@prisma/client'
 import { WorkflowError } from '../src/lib/workflow/errors'
 import {
@@ -86,6 +87,9 @@ test('mobile grooming journey handles contention, field recovery, partial work, 
   assert.equal((await applyOfflineCommand(prisma, { actorId: data.groomerB.id, orderId: order.id, deviceId, clientCommandId: 'check-in-1', expectedVersion: current.version, command: 'CHECK_IN' })).duplicate, true)
   const conflict = await applyOfflineCommand(prisma, { actorId: data.groomerB.id, orderId: order.id, deviceId, clientCommandId: 'stale-start', expectedVersion: current.version, command: 'START' })
   assert.equal(conflict.conflict, true)
+  await assert.rejects(applyOfflineCommand(prisma, { actorId: data.groomerA.id, orderId: order.id, deviceId, clientCommandId: 'unauthorized-stale', expectedVersion: current.version, command: 'START' }), (error: unknown) => error instanceof WorkflowError && error.code === 'ORDER_ACCESS_DENIED')
+  assert.equal(await prisma.offlineCommand.count({ where: { deviceId, clientCommandId: 'unauthorized-stale' } }), 0)
+  await assert.rejects(applyOfflineCommand(prisma, { actorId: data.groomerB.id, orderId: order.id, deviceId, clientCommandId: 'bad-version', expectedVersion: 0, command: 'START' }), (error: unknown) => error instanceof WorkflowError && error.code === 'VALIDATION_ERROR')
   const started = await applyOfflineCommand(prisma, { actorId: data.groomerB.id, orderId: order.id, deviceId, clientCommandId: 'start-1', expectedVersion: checkedIn.order!.version, command: 'START' })
   const change = await requestChangeOrder(prisma, { actorId: data.manager.id, orderId: order.id, serviceIds: [data.extraService.id], reason: 'Severe matting discovered after check-in' })
   await assert.rejects(decideChangeOrder(prisma, { actorId: data.manager.id, changeOrderId: change.id, approve: true }), (error: unknown) => error instanceof WorkflowError && error.code === 'SEPARATE_APPROVER_REQUIRED')
@@ -100,6 +104,7 @@ test('mobile grooming journey handles contention, field recovery, partial work, 
   await drain(); invoice = await prisma.workflowInvoice.findUniqueOrThrow({ where: { id: invoice.id } })
   assert.equal(invoice.status, 'ISSUED'); assert.equal(invoice.totalCents, 7560)
   let payment = await initiatePayment(prisma, { actorId: data.manager.id, invoiceId: invoice.id, amountCents: invoice.totalCents, idempotencyKey: `payment-${data.suffix}`, paymentConnectorId: data.connectors.PAYMENT.id })
+  await assert.rejects(initiatePayment(prisma, { actorId: data.manager.id, invoiceId: invoice.id, amountCents: 1, idempotencyKey: `payment-over-${data.suffix}`, paymentConnectorId: data.connectors.PAYMENT.id }), (error: unknown) => error instanceof WorkflowError && error.code === 'PAYMENT_AMOUNT_INVALID')
   await drain(); payment = await prisma.workflowPayment.findUniqueOrThrow({ where: { id: payment.id } })
   assert.equal(payment.providerExternalId, `pay-${data.suffix}`)
   const paymentEvent = { connectorId: data.connectors.PAYMENT.id, externalEventId: `payment-event-${data.suffix}`, payload: { type: 'PAYMENT_SUCCEEDED', externalId: payment.providerExternalId } }
@@ -118,6 +123,8 @@ test('mobile grooming journey handles contention, field recovery, partial work, 
   await drain()
   const noShowOffered = await prisma.groomingQuote.findUniqueOrThrow({ where: { id: noShowQuote.id } }); const cancelOffered = await prisma.groomingQuote.findUniqueOrThrow({ where: { id: cancelQuote.id } })
   let noShowOrder = await acceptQuote(prisma, { actorId: data.manager.id, quoteId: noShowQuote.id, expectedVersion: noShowOffered.version, connectors: bookingConnectors })
+  await assert.rejects(transitionJob(prisma, { actorId: data.groomerA.id, orderId: noShowOrder.id, expectedVersion: noShowOrder.version, status: 'NO_SHOW', connectors: bookingConnectors }), (error: unknown) => error instanceof WorkflowError && error.code === 'APPOINTMENT_NOT_STARTED')
+  noShowOrder = await prisma.groomingOrder.update({ where: { id: noShowOrder.id }, data: { scheduledStart: new Date('2020-02-15T14:00:00Z'), scheduledEnd: new Date('2020-02-15T15:00:00Z') } })
   noShowOrder = await transitionJob(prisma, { actorId: data.groomerA.id, orderId: noShowOrder.id, expectedVersion: noShowOrder.version, status: 'NO_SHOW', connectors: bookingConnectors })
   const noShowInvoice = await issueInvoice(prisma, { actorId: data.admin.id, orderId: noShowOrder.id, noShowFeeCents: 1500, taxConnectorId: data.connectors.TAX.id })
   assert.equal(noShowInvoice.subtotalCents, 1500)
@@ -139,6 +146,27 @@ test('mobile grooming journey handles contention, field recovery, partial work, 
   await retryIntegrationOperation(prisma, { actorId: data.admin.id, operationId: repairOperation.id, reason: 'Provider health check recovered' })
   assert.equal(await processOneIntegrationOperation(prisma, 'repair-worker', provider), 'completed')
   for (const count of calls.values()) assert.equal(count, 1, 'every provider idempotency key is delivered once')
+})
+
+test('vaccination cron authorizes the shared secret without a staff session', async () => {
+  const { GET } = await import('../src/app/api/cron/vaccination-reminders/route')
+  const previous = process.env.CRON_SECRET
+  process.env.CRON_SECRET = 'cron-test-secret'
+  try {
+    const missing = await GET(new NextRequest('http://localhost:3000/api/cron/vaccination-reminders'))
+    assert.equal(missing.status, 401)
+    const wrong = await GET(new NextRequest('http://localhost:3000/api/cron/vaccination-reminders', { headers: { 'x-cron-secret': 'wrong-secret' } }))
+    assert.equal(wrong.status, 401)
+    const allowed = await GET(new NextRequest('http://localhost:3000/api/cron/vaccination-reminders', { headers: { 'x-cron-secret': 'cron-test-secret' } }))
+    assert.equal(allowed.status, 200)
+    const body = await allowed.json()
+    assert.equal(body.checked, 0)
+    assert.equal(body.reminded, 0)
+    assert.equal(body.failed, 0)
+  } finally {
+    if (previous === undefined) delete process.env.CRON_SECRET
+    else process.env.CRON_SECRET = previous
+  }
 })
 
 test.after(async () => prisma.$disconnect())
