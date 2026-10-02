@@ -111,8 +111,21 @@ export default function LoginPage() {
                     toast.error('Demo credentials are unavailable. Please sign in with your account.')
                     return
                   }
+                  // Fill the fields, then sign in immediately with the freshly fetched values.
                   setValue('email', credentials.email, { shouldValidate: true })
                   setValue('password', credentials.password, { shouldValidate: true })
+                  const result = await signIn('credentials', {
+                    email: credentials.email,
+                    password: credentials.password,
+                    redirect: false,
+                  })
+                  if (result?.error) {
+                    toast.error('Invalid email or password')
+                  } else {
+                    toast.success('Login successful!')
+                    router.push('/dashboard')
+                    router.refresh()
+                  }
                 } catch {
                   toast.error('Could not load demo credentials. Please try again.')
                 } finally {
@@ -122,7 +135,7 @@ export default function LoginPage() {
               aria-label="Auto Fill Demo Credentials"
               style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
             >
-              {demoLoading ? 'Filling credentials…' : 'Auto Fill Demo Credentials'}
+              {demoLoading ? 'Signing in…' : 'Auto Fill & Sign In (Demo)'}
             </button>}
             <Button type="submit" className="w-full" loading={loading}>
               Sign In
