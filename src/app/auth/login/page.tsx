@@ -132,7 +132,7 @@ export default function LoginPage() {
                   setDemoLoading(false)
                 }
               }}
-              aria-label="Auto Fill Demo Credentials"
+              aria-label="Log In as Demo"
               style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}
             >
               {demoLoading ? 'Signing in…' : 'Auto Fill & Sign In (Demo)'}

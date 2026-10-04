@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { workflowResponse } from '@/lib/workflow/api'
 import { WorkflowError } from '@/lib/workflow/errors'
 import { verifyWebhookSignature } from '@/lib/workflow/provider'
+import { normalizeStripeTestEvent, verifyStripeWebhookSignature } from '@/lib/workflow/sandboxAdapters'
 import { applyIntegrationWebhook } from '@/lib/workflow/worker'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ connectorId: string }> }) {
@@ -12,6 +13,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const secret = process.env[connector.webhookSecretEnv]
     if (!secret) throw new WorkflowError('WEBHOOK_SECRET_MISSING', 'Payment webhook secret is not configured', 503)
     const raw = await request.text()
+    if (connector.provider === 'stripe-test') {
+      const signature = request.headers.get('stripe-signature') || ''
+      if (!verifyStripeWebhookSignature(secret, raw, signature)) throw new WorkflowError('WEBHOOK_SIGNATURE_INVALID', 'Stripe test webhook signature is invalid', 401)
+      let event: unknown
+      try { event = JSON.parse(raw) } catch { throw new WorkflowError('WEBHOOK_PAYLOAD_INVALID', 'Stripe test webhook payload is invalid', 422) }
+      const normalized = normalizeStripeTestEvent(event)
+      if (!normalized) return NextResponse.json({ ignored: true })
+      return NextResponse.json(await applyIntegrationWebhook(db, { connectorId: connector.id, ...normalized }))
+    }
     const timestamp = Number(request.headers.get('x-provider-timestamp'))
     const signature = request.headers.get('x-provider-signature') || ''
     if (!verifyWebhookSignature(secret, timestamp, raw, signature)) throw new WorkflowError('WEBHOOK_SIGNATURE_INVALID', 'Payment webhook signature is invalid', 401)

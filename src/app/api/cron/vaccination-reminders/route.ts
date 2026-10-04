@@ -13,7 +13,7 @@ import { checkUpcomingVaccinations } from '@/lib/scheduler'
  *   "crons": [{ "path": "/api/cron/vaccination-reminders", "schedule": "0 8 * * *" }]
  * }
  */
-export function authorizeCronRequest(request: NextRequest): NextResponse | null {
+function authorizeCronRequest(request: NextRequest): NextResponse | null {
   const secret = request.headers.get('x-cron-secret')
   const expectedSecret = process.env.CRON_SECRET
 

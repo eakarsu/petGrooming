@@ -21,7 +21,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       case 'REASSIGN': result = await reassignTechnician(db, { ...base, expectedVersion: body.expectedVersion, technicianId: body.technicianId, reason: body.reason, connectors: body.connectors }); break
       case 'CHANGE_REQUEST': result = await requestChangeOrder(db, { ...base, serviceIds: body.serviceIds, reason: body.reason }); break
       case 'CHANGE_DECIDE': result = await decideChangeOrder(db, { actorId: actor.id, changeOrderId: body.changeOrderId, approve: Boolean(body.approve) }); break
-      case 'JOB_STATUS': result = await transitionJob(db, { ...base, expectedVersion: body.expectedVersion, status: body.status, deliveredCents: body.deliveredCents, connectors: body.connectors }); break
+      case 'JOB_STATUS': result = await transitionJob(db, { ...base, expectedVersion: body.expectedVersion, status: body.status, deliveredCents: body.deliveredCents, connectors: body.connectors, location: body.location }); break
       case 'INVOICE': result = await issueInvoice(db, { ...base, noShowFeeCents: body.noShowFeeCents, taxConnectorId: body.taxConnectorId }); break
       case 'PAYMENT': result = await initiatePayment(db, { actorId: actor.id, invoiceId: body.invoiceId, amountCents: body.amountCents, idempotencyKey: body.idempotencyKey, paymentConnectorId: body.paymentConnectorId }); break
       case 'REFUND': result = await requestRefund(db, { actorId: actor.id, paymentId: body.paymentId, amountCents: body.amountCents, idempotencyKey: body.idempotencyKey, reason: body.reason, paymentConnectorId: body.paymentConnectorId }); break

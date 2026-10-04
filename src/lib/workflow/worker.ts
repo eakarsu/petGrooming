@@ -17,6 +17,23 @@ function stringOutput(output: Record<string, unknown>, field: string) {
   return value
 }
 
+function confirmWebhookMoney(payload: Record<string, unknown>, amountCents: number, currency: string) {
+  if (payload.amountCents !== undefined && (!Number.isSafeInteger(payload.amountCents) || payload.amountCents !== amountCents)) throw new WorkflowError('WEBHOOK_AMOUNT_MISMATCH', 'Payment event amount did not match the workflow record', 409)
+  if (payload.currency !== undefined && String(payload.currency).toUpperCase() !== currency.toUpperCase()) throw new WorkflowError('WEBHOOK_CURRENCY_MISMATCH', 'Payment event currency did not match the workflow record', 409)
+}
+
+async function completeFromWebhook(tx: Prisma.TransactionClient, connectorId: string, aggregateType: 'PAYMENT' | 'REFUND', aggregateId: string, externalId: string, eventId: string) {
+  const operation = await tx.integrationOperation.findFirst({ where: { connectorId, aggregateType, aggregateId, operationType: aggregateType === 'PAYMENT' ? 'PAYMENT_CHARGE' : 'PAYMENT_REFUND' } })
+  if (!operation) throw new WorkflowError('PROVIDER_OPERATION_NOT_FOUND', 'Payment event has no matching provider operation', 404)
+  const priorOutput = operation.output && typeof operation.output === 'object' && !Array.isArray(operation.output) ? operation.output as Record<string, unknown> : null
+  if (priorOutput?.externalId && priorOutput.externalId !== externalId) throw new WorkflowError('PROVIDER_EXTERNAL_ID_MISMATCH', 'Payment event conflicts with the stored provider response', 409)
+  if (operation.status !== 'COMPLETED') await tx.integrationOperation.update({ where: { id: operation.id }, data: {
+    status: 'COMPLETED', output: { externalId, reconciledBy: 'signed_webhook' }, receipt: `webhook:${eventId}`,
+    leasedBy: null, leasedUntil: null, lastError: null,
+  } })
+  return operation
+}
+
 async function finalizeQuote(tx: Prisma.TransactionClient, quoteId: string, actorId: string) {
   const quote = await tx.groomingQuote.findUnique({ where: { id: quoteId } })
   if (!quote || quote.status !== 'DRAFT') return
@@ -52,10 +69,10 @@ async function applyOperationSuccess(tx: Prisma.TransactionClient, operation: { 
     await appendWorkflowAudit(tx, { orderId: invoice.orderId, actorId, action: 'INVOICE_ISSUED', payload: { invoiceId: invoice.id, taxCents, totalCents: invoice.subtotalCents + taxCents } })
   }
   if (operation.aggregateType === 'PAYMENT' && operation.operationType === 'PAYMENT_CHARGE') {
-    await tx.workflowPayment.update({ where: { id: operation.aggregateId }, data: { providerExternalId: stringOutput(output, 'externalId') } })
+    await tx.workflowPayment.update({ where: { id: operation.aggregateId }, data: { providerExternalId: stringOutput(output, 'externalId'), status: 'PENDING', failureCode: null } })
   }
   if (operation.aggregateType === 'REFUND' && operation.operationType === 'PAYMENT_REFUND') {
-    await tx.workflowRefund.update({ where: { id: operation.aggregateId }, data: { providerExternalId: stringOutput(output, 'externalId') } })
+    await tx.workflowRefund.update({ where: { id: operation.aggregateId }, data: { providerExternalId: stringOutput(output, 'externalId'), status: 'PENDING' } })
   }
   if (operation.aggregateType === 'ORDER' && operation.operationType.includes('MESSAGE')) {
     await tx.customerCommunication.updateMany({ where: { orderId: operation.aggregateId, status: 'QUEUED' }, data: { status: 'SENT' } })
@@ -80,6 +97,9 @@ export async function processOneIntegrationOperation(prisma: PrismaClient, worke
   })
   if (!claimed) return 'idle'
   try {
+    if (claimed.connector.provider === 'stripe-test' && ['PAYMENT', 'REFUND'].includes(claimed.aggregateType) && Date.now() - claimed.createdAt.getTime() > 23 * 60 * 60_000) {
+      throw new WorkflowError('STRIPE_IDEMPOTENCY_WINDOW_EXPIRED', 'Reconcile the Stripe test object before retrying after 23 hours', 409)
+    }
     const result = await provider(claimed.connector, claimed.operationType, claimed.payload, claimed.idempotencyKey)
     await prisma.$transaction(async (tx) => {
       const current = await tx.integrationOperation.findUniqueOrThrow({ where: { id: claimed.id } })
@@ -92,6 +112,7 @@ export async function processOneIntegrationOperation(prisma: PrismaClient, worke
     const workflowError = error instanceof WorkflowError ? error : new WorkflowError('PROVIDER_FAILURE', error instanceof Error ? error.message : 'Provider failure', 502, true)
     return prisma.$transaction(async (tx) => {
       const current = await tx.integrationOperation.findUniqueOrThrow({ where: { id: claimed.id } })
+      if (current.status === 'COMPLETED') return 'reconciled'
       const dead = !workflowError.retryable || current.attempts >= current.maxAttempts
       await tx.integrationOperation.update({
         where: { id: claimed.id },
@@ -119,10 +140,18 @@ export async function applyIntegrationWebhook(prisma: PrismaClient, input: { con
     await tx.integrationWebhookReceipt.create({ data: { connectorId: connector.id, externalEventId: input.externalEventId, payloadHash: sha256(input.payload) } })
     const type = String(input.payload.type || '')
     const externalId = String(input.payload.externalId || '')
+    if (!['PAYMENT_SUCCEEDED', 'PAYMENT_FAILED', 'REFUND_SUCCEEDED', 'REFUND_FAILED'].includes(type) || !externalId) throw new WorkflowError('WEBHOOK_EVENT_UNSUPPORTED', 'Webhook event type or provider ID is unsupported', 422)
     if (type.startsWith('PAYMENT_')) {
-      const payment = await tx.workflowPayment.findUnique({ where: { providerExternalId: externalId }, include: { invoice: true } })
+      let payment = await tx.workflowPayment.findUnique({ where: { providerExternalId: externalId }, include: { invoice: true } })
+      if (!payment && typeof input.payload.paymentId === 'string') {
+        payment = await tx.workflowPayment.findUnique({ where: { id: input.payload.paymentId }, include: { invoice: true } })
+        if (payment && payment.providerExternalId && payment.providerExternalId !== externalId) throw new WorkflowError('PAYMENT_EXTERNAL_ID_MISMATCH', 'Payment provider ID did not match', 409)
+      }
       if (!payment) throw new WorkflowError('PAYMENT_NOT_FOUND', 'Webhook payment was not found', 404)
-      if (type === 'PAYMENT_SUCCEEDED' && payment.status === 'PENDING') {
+      confirmWebhookMoney(input.payload, payment.amountCents, payment.invoice.currency)
+      await completeFromWebhook(tx, connector.id, 'PAYMENT', payment.id, externalId, input.externalEventId)
+      if (!payment.providerExternalId) await tx.workflowPayment.update({ where: { id: payment.id }, data: { providerExternalId: externalId } })
+      if (type === 'PAYMENT_SUCCEEDED' && ['PENDING', 'FAILED'].includes(payment.status)) {
         const paidCents = payment.invoice.paidCents + payment.amountCents
         await tx.workflowPayment.update({ where: { id: payment.id }, data: { status: 'SUCCEEDED' } })
         await tx.workflowInvoice.update({ where: { id: payment.invoiceId }, data: { paidCents, status: paidCents >= payment.invoice.totalCents ? 'PAID' : 'PARTIALLY_PAID' } })
@@ -136,9 +165,16 @@ export async function applyIntegrationWebhook(prisma: PrismaClient, input: { con
       return { duplicate: false, paymentId: payment.id }
     }
     if (type.startsWith('REFUND_')) {
-      const refund = await tx.workflowRefund.findUnique({ where: { providerExternalId: externalId }, include: { payment: { include: { invoice: true, refunds: true } } } })
+      let refund = await tx.workflowRefund.findUnique({ where: { providerExternalId: externalId }, include: { payment: { include: { invoice: true, refunds: true } } } })
+      if (!refund && typeof input.payload.refundId === 'string') {
+        refund = await tx.workflowRefund.findUnique({ where: { id: input.payload.refundId }, include: { payment: { include: { invoice: true, refunds: true } } } })
+        if (refund && refund.providerExternalId && refund.providerExternalId !== externalId) throw new WorkflowError('REFUND_EXTERNAL_ID_MISMATCH', 'Refund provider ID did not match', 409)
+      }
       if (!refund) throw new WorkflowError('REFUND_NOT_FOUND', 'Webhook refund was not found', 404)
-      if (type === 'REFUND_SUCCEEDED' && refund.status === 'PENDING') {
+      confirmWebhookMoney(input.payload, refund.amountCents, refund.payment.invoice.currency)
+      await completeFromWebhook(tx, connector.id, 'REFUND', refund.id, externalId, input.externalEventId)
+      if (!refund.providerExternalId) await tx.workflowRefund.update({ where: { id: refund.id }, data: { providerExternalId: externalId } })
+      if (type === 'REFUND_SUCCEEDED' && ['PENDING', 'FAILED'].includes(refund.status)) {
         await tx.workflowRefund.update({ where: { id: refund.id }, data: { status: 'SUCCEEDED' } })
         const invoice = refund.payment.invoice
         const refundedCents = invoice.refundedCents + refund.amountCents
@@ -161,8 +197,13 @@ export async function retryIntegrationOperation(prisma: PrismaClient, input: { a
   return prisma.$transaction(async (tx) => {
     const actor = await tx.user.findUnique({ where: { id: input.actorId } })
     if (!actor?.isActive || !['ADMIN', 'MANAGER'].includes(actor.role)) throw new WorkflowError('ROLE_FORBIDDEN', 'A supervisor is required', 403)
-    const operation = await tx.integrationOperation.findUnique({ where: { id: input.operationId } })
+    const reason = typeof input.reason === 'string' ? input.reason.trim() : ''
+    if (reason.length < 10 || reason.length > 1000) throw new WorkflowError('RETRY_REASON_REQUIRED', 'Describe provider reconciliation in 10 to 1000 characters', 422)
+    const operation = await tx.integrationOperation.findUnique({ where: { id: input.operationId }, include: { connector: true } })
     if (!operation || operation.status !== 'DEAD_LETTER') throw new WorkflowError('DEAD_LETTER_NOT_FOUND', 'A dead-letter operation was not found', 404)
-    return tx.integrationOperation.update({ where: { id: operation.id }, data: { status: 'RETRY', attempts: 0, nextAttemptAt: new Date(), lastError: `Manual repair: ${String(input.reason).slice(0, 1000)}` } })
+    if (operation.connector.provider === 'stripe-test' && ['PAYMENT', 'REFUND'].includes(operation.aggregateType) && Date.now() - operation.createdAt.getTime() > 23 * 60 * 60_000) {
+      throw new WorkflowError('STRIPE_IDEMPOTENCY_WINDOW_EXPIRED', 'Use signed webhook or provider record reconciliation; do not replay the expired Stripe idempotency key', 409)
+    }
+    return tx.integrationOperation.update({ where: { id: operation.id }, data: { status: 'RETRY', attempts: 0, nextAttemptAt: new Date(), lastError: `Manual repair: ${reason}` } })
   })
 }

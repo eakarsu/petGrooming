@@ -141,7 +141,7 @@ export async function requestQuote(prisma: PrismaClient, input: ActorInput & {
     const serviceIds = Array.from(new Set(input.serviceIds || []))
     const services = await tx.service.findMany({ where: { id: { in: serviceIds }, isActive: true } })
     if (!serviceIds.length || services.length !== serviceIds.length) throw new WorkflowError('SERVICE_NOT_AVAILABLE', 'Every quote service must be active', 409)
-    await eligibleTechnician(tx, { technicianId: input.technicianId, serviceIds, start, end, postalCode: text(input.postalCode, 'postalCode', 20) })
+    const technicianProfile = await eligibleTechnician(tx, { technicianId: input.technicianId, serviceIds, start, end, postalCode: text(input.postalCode, 'postalCode', 20) })
     const subtotalCents = services.reduce((sum, service) => sum + Math.round(service.basePrice * 100), 0)
     const quote = await tx.groomingQuote.create({
       data: {
@@ -153,7 +153,7 @@ export async function requestQuote(prisma: PrismaClient, input: ActorInput & {
         lines: { create: services.map((service) => ({ serviceId: service.id, serviceName: service.name, unitPriceCents: Math.round(service.basePrice * 100), durationMinutes: service.baseDuration })) },
       }, include: { lines: true },
     })
-    await queueIntegrationOperation(tx, { kind: 'MAPS', connectorId: input.connectors?.MAPS, operationType: 'ROUTE_QUOTE', aggregateType: 'QUOTE', aggregateId: quote.id, idempotencyKey: `quote:${quote.id}:maps`, payload: { originTechnicianId: input.technicianId, destination: { latitude: input.latitude, longitude: input.longitude, postalCode: quote.postalCode }, startsAt: start.toISOString() } })
+    await queueIntegrationOperation(tx, { kind: 'MAPS', connectorId: input.connectors?.MAPS, operationType: 'ROUTE_QUOTE', aggregateType: 'QUOTE', aggregateId: quote.id, idempotencyKey: `quote:${quote.id}:maps`, payload: { originTechnicianId: input.technicianId, origin: { latitude: technicianProfile.baseLatitude, longitude: technicianProfile.baseLongitude }, destination: { latitude: input.latitude, longitude: input.longitude, postalCode: quote.postalCode }, startsAt: start.toISOString() } })
     await queueIntegrationOperation(tx, { kind: 'TAX', connectorId: input.connectors?.TAX, operationType: 'TAX_QUOTE', aggregateType: 'QUOTE', aggregateId: quote.id, idempotencyKey: `quote:${quote.id}:tax`, payload: { amountCents: subtotalCents, currency: quote.currency, postalCode: quote.postalCode } })
     await appendWorkflowAudit(tx, { quoteId: quote.id, actorId: input.actorId, action: 'QUOTE_REQUESTED', payload: { serviceIds, subtotalCents, requestedStart: start.toISOString(), requestedEnd: end.toISOString(), technicianId: input.technicianId } })
     return quote
@@ -294,7 +294,20 @@ const JOB_TRANSITIONS: Record<WorkflowJobStatus, WorkflowJobStatus[]> = {
   PARTIAL: [], COMPLETED: [], NO_SHOW: [], CANCELLED: [],
 }
 
-async function transitionJobTx(tx: Prisma.TransactionClient, input: ActorInput & { orderId: string; expectedVersion: number; status: WorkflowJobStatus; deliveredCents?: number; connectors?: ConnectorSelection; offline?: boolean }) {
+export type VisitLocation = { latitude: number; longitude: number; accuracyMeters: number }
+export function visitLocation(value: unknown): VisitLocation | null {
+  if (value == null) return null
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new WorkflowError('LOCATION_INVALID', 'Visit location must contain coordinates and accuracy')
+  const point = value as Record<string, unknown>
+  if (Object.keys(point).some(key => !['latitude', 'longitude', 'accuracyMeters'].includes(key)) ||
+      typeof point.latitude !== 'number' || !Number.isFinite(point.latitude) || Math.abs(point.latitude) > 90 ||
+      typeof point.longitude !== 'number' || !Number.isFinite(point.longitude) || Math.abs(point.longitude) > 180 ||
+      typeof point.accuracyMeters !== 'number' || !Number.isFinite(point.accuracyMeters) || point.accuracyMeters < 0 || point.accuracyMeters > 200)
+    throw new WorkflowError('LOCATION_INVALID', 'Visit location must be a valid position accurate to 200 meters')
+  return { latitude: point.latitude, longitude: point.longitude, accuracyMeters: point.accuracyMeters }
+}
+
+async function transitionJobTx(tx: Prisma.TransactionClient, input: ActorInput & { orderId: string; expectedVersion: number; status: WorkflowJobStatus; deliveredCents?: number; connectors?: ConnectorSelection; offline?: boolean; location?: VisitLocation }) {
   const { order } = await requireOrderOperator(tx, input.orderId, input.actorId)
   if (order.version !== input.expectedVersion) throw new WorkflowError('VERSION_CONFLICT', 'Order changed; reconcile the latest version before applying this status', 409)
   if (!JOB_TRANSITIONS[order.jobStatus].includes(input.status)) throw new WorkflowError('INVALID_JOB_TRANSITION', `${order.jobStatus} cannot transition to ${input.status}`, 409)
@@ -319,11 +332,12 @@ async function transitionJobTx(tx: Prisma.TransactionClient, input: ActorInput &
   if (['NO_SHOW', 'PARTIAL', 'COMPLETED'].includes(input.status)) {
     await queueIntegrationOperation(tx, { kind: 'MESSAGING', connectorId: input.connectors?.MESSAGING, operationType: `JOB_${input.status}`, aggregateType: 'ORDER', aggregateId: order.id, idempotencyKey: `order:${order.id}:message:${input.status.toLowerCase()}`, payload: { orderId: order.id, clientId: order.clientId, deliveredCents } })
   }
-  await appendWorkflowAudit(tx, { orderId: order.id, actorId: input.actorId, action: `JOB_${input.status}`, payload: { previous: order.jobStatus, deliveredCents, offline: Boolean(input.offline), version: updated.version } })
+  const location = ['CHECKED_IN', 'COMPLETED'].includes(input.status) ? visitLocation(input.location) : null
+  await appendWorkflowAudit(tx, { orderId: order.id, actorId: input.actorId, action: `JOB_${input.status}`, payload: { previous: order.jobStatus, deliveredCents, offline: Boolean(input.offline), version: updated.version, ...(location ? { location } : {}) } })
   return updated
 }
 
-export async function transitionJob(prisma: PrismaClient, input: ActorInput & { orderId: string; expectedVersion: number; status: WorkflowJobStatus; deliveredCents?: number; connectors?: ConnectorSelection }) {
+export async function transitionJob(prisma: PrismaClient, input: ActorInput & { orderId: string; expectedVersion: number; status: WorkflowJobStatus; deliveredCents?: number; connectors?: ConnectorSelection; location?: VisitLocation }) {
   return prisma.$transaction((tx) => transitionJobTx(tx, input), { isolationLevel: 'Serializable' })
 }
 
@@ -357,7 +371,11 @@ export async function initiatePayment(prisma: PrismaClient, input: ActorInput & 
       where: { invoiceId: invoice.id, status: 'PENDING' },
       _sum: { amountCents: true },
     })
-    const due = invoice.totalCents - invoice.paidCents - (inFlight._sum.amountCents || 0)
+    const uncertainFailures = await tx.workflowPayment.findMany({ where: { invoiceId: invoice.id, status: 'FAILED' }, select: { id: true, amountCents: true } })
+    const unresolved = uncertainFailures.length ? await tx.integrationOperation.findMany({ where: { aggregateType: 'PAYMENT', aggregateId: { in: uncertainFailures.map(payment => payment.id) }, operationType: 'PAYMENT_CHARGE', status: { not: 'COMPLETED' } }, select: { aggregateId: true } }) : []
+    const unresolvedIds = new Set(unresolved.map(operation => operation.aggregateId))
+    const reservedCents = uncertainFailures.filter(payment => unresolvedIds.has(payment.id)).reduce((sum, payment) => sum + payment.amountCents, 0)
+    const due = invoice.totalCents - invoice.paidCents - (inFlight._sum.amountCents || 0) - reservedCents
     if (amountCents > due) throw new WorkflowError('PAYMENT_AMOUNT_INVALID', 'Payment exceeds the remaining invoice balance', 409)
     const payment = await tx.workflowPayment.create({ data: { invoiceId: invoice.id, amountCents, idempotencyKey: text(input.idempotencyKey, 'idempotencyKey', 200) } })
     await queueIntegrationOperation(tx, { kind: 'PAYMENT', connectorId: input.paymentConnectorId, operationType: 'PAYMENT_CHARGE', aggregateType: 'PAYMENT', aggregateId: payment.id, idempotencyKey: `provider:${payment.idempotencyKey}`, payload: { paymentId: payment.id, invoiceId: invoice.id, amountCents, currency: invoice.currency } })
@@ -374,7 +392,10 @@ export async function requestRefund(prisma: PrismaClient, input: ActorInput & { 
     const payment = await tx.workflowPayment.findUnique({ where: { id: input.paymentId }, include: { refunds: true, invoice: true } })
     if (!payment || !['SUCCEEDED', 'PARTIALLY_REFUNDED'].includes(payment.status)) throw new WorkflowError('PAYMENT_NOT_REFUNDABLE', 'Only successful payments can be refunded', 409)
     const amountCents = positiveCents(input.amountCents, 'amountCents')
-    const refunded = payment.refunds.filter((refund) => ['PENDING', 'SUCCEEDED'].includes(refund.status)).reduce((sum, refund) => sum + refund.amountCents, 0)
+    const uncertainFailures = payment.refunds.filter(refund => refund.status === 'FAILED')
+    const unresolved = uncertainFailures.length ? await tx.integrationOperation.findMany({ where: { aggregateType: 'REFUND', aggregateId: { in: uncertainFailures.map(refund => refund.id) }, operationType: 'PAYMENT_REFUND', status: { not: 'COMPLETED' } }, select: { aggregateId: true } }) : []
+    const unresolvedIds = new Set(unresolved.map(operation => operation.aggregateId))
+    const refunded = payment.refunds.filter((refund) => ['PENDING', 'SUCCEEDED'].includes(refund.status) || unresolvedIds.has(refund.id)).reduce((sum, refund) => sum + refund.amountCents, 0)
     if (amountCents > payment.amountCents - refunded) throw new WorkflowError('REFUND_AMOUNT_INVALID', 'Refund exceeds the unrefunded payment amount', 409)
     const refund = await tx.workflowRefund.create({ data: { paymentId: payment.id, amountCents, idempotencyKey: text(input.idempotencyKey, 'idempotencyKey', 200), reason: text(input.reason, 'reason', 1000) } })
     await queueIntegrationOperation(tx, { kind: 'PAYMENT', connectorId: input.paymentConnectorId, operationType: 'PAYMENT_REFUND', aggregateType: 'REFUND', aggregateId: refund.id, idempotencyKey: `provider:${refund.idempotencyKey}`, payload: { refundId: refund.id, paymentExternalId: payment.providerExternalId, amountCents, currency: payment.invoice.currency } })
@@ -421,10 +442,17 @@ export async function applyOfflineCommand(prisma: PrismaClient, input: ActorInpu
 export async function getOrderWorkflow(prisma: PrismaClient, input: ActorInput & { orderId: string }) {
   return prisma.$transaction(async (tx) => {
     await requireOrderOperator(tx, input.orderId, input.actorId)
-    return tx.groomingOrder.findUniqueOrThrow({
+    const order = await tx.groomingOrder.findUniqueOrThrow({
       where: { id: input.orderId },
       include: { quote: { include: { lines: true } }, dispatches: { orderBy: { assignedAt: 'desc' } }, changeOrders: { include: { lines: true } }, inventoryReservations: { include: { product: true } }, invoice: { include: { payments: { include: { refunds: true } } } }, communications: true },
     })
+    const payments = order.invoice?.payments || []
+    const aggregateIds = [...payments.map(payment => payment.id), ...payments.flatMap(payment => payment.refunds.map(refund => refund.id))]
+    const moneyOperations = aggregateIds.length ? await tx.integrationOperation.findMany({
+      where: { aggregateId: { in: aggregateIds }, aggregateType: { in: ['PAYMENT', 'REFUND'] } },
+      select: { id: true, aggregateId: true, aggregateType: true, operationType: true, status: true, output: true, receipt: true, attempts: true, lastError: true, updatedAt: true },
+    }) : []
+    return { ...order, moneyOperations }
   })
 }
 

@@ -3,6 +3,7 @@ import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
 import type { ProviderConnector } from '@prisma/client'
 import { WorkflowError } from './errors'
+import { invokeSandboxAdapter } from './sandboxAdapters'
 
 function isPrivateAddress(address: string) {
   if (isIP(address) === 4) {
@@ -34,6 +35,8 @@ export type ProviderInvoker = (connector: ProviderConnector, operationType: stri
 
 export const invokeProvider: ProviderInvoker = async (connector, operationType, payload, idempotencyKey) => {
   const url = await validateProviderEndpoint(connector)
+  const native = await invokeSandboxAdapter(connector, operationType, payload, idempotencyKey)
+  if (native) return native
   const credential = process.env[connector.credentialEnv]
   if (!credential) throw new WorkflowError('PROVIDER_CREDENTIAL_MISSING', `${connector.kind} provider credential is not configured`, 503, true)
   const response = await fetch(url, {
