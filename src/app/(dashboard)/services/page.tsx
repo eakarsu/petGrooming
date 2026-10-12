@@ -108,7 +108,7 @@ export default function ServicesPage() {
 
   // Pagination state
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(20)
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -191,6 +191,7 @@ export default function ServicesPage() {
       const res = await fetch('/api/services')
       if (res.ok) {
         const data = await res.json()
+        if (!Array.isArray(data)) throw new Error("Services API returned an invalid record list")
         setServices(data)
       }
     } catch (error) {

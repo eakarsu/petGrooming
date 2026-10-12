@@ -13,5 +13,5 @@ export const GET=endpoint(AI_ROLES,async(request,actor)=>{
  ])
  return{pets,drafts,knowledge,daily,canManage:SUPERVISOR_ROLES.includes(actor.role),tasks:office?TASKS:TASKS.filter(t=>!['STOCK_REVIEW','CAMPAIGN_DRAFT','REVIEW_RESPONSE'].includes(t)),configured:Boolean(process.env.OPENROUTER_API_KEY&&process.env.OPENROUTER_MODEL&&process.env.OPENROUTER_BASE_URL==='https://openrouter.ai/api/v1'),visionConfigured:Boolean(process.env.OPENROUTER_VISION_MODEL)}
 })
-export const POST=endpoint(AI_ROLES,async(request,actor)=>generate(actor.id,request.headers.get('Idempotency-Key'),await readJson(request)))
+export const POST=endpoint(AI_ROLES,async(request,actor)=>generate(actor.id,request.headers.get('Idempotency-Key'),await readJson(request),fetch,request.signal))
 export const PATCH=endpoint(AI_ROLES,async(request,actor)=>{const input=reviewInput.parse(await readJson(request));await getDraft(db,actor.id,input.id);return mutate(actor.id,request.headers.get('Idempotency-Key'),'assistant.review',input,tx=>review(tx,actor.id,input),AI_ROLES)})

@@ -6,9 +6,13 @@ export async function GET(request: NextRequest) {
   const headers = { 'Cache-Control': 'no-store, private' }
   const localHosts = ['localhost', '127.0.0.1', '[::1]']
   const localRequest = localHosts.includes(request.nextUrl.hostname)
+  const configuredHost = (() => {
+    try { return new URL(process.env.NEXTAUTH_URL || '').hostname }
+    catch { return '' }
+  })()
   const enabled =
-    process.env.NODE_ENV !== 'production' &&
-    process.env.ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true' && localRequest
+    process.env.ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true' &&
+    localRequest && localHosts.includes(configuredHost)
   const email = process.env.PROVISION_ADMIN_EMAIL || process.env.ADMIN_EMAIL
   const password = process.env.PROVISION_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD
 

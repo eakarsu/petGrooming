@@ -243,7 +243,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {appointments.slice(0, 5).map((apt) => (
+                {appointments.slice(0, 20).map((apt) => (
                   <div
                     key={apt.id}
                     className="flex items-center justify-between rounded-lg border p-4 cursor-pointer hover:bg-gray-50 transition-colors"

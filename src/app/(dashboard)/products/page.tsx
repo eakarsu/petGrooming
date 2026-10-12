@@ -115,7 +115,7 @@ export default function ProductsPage() {
 
   // Pagination state
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(20)
 
   // Sorting state
   const [sortField, setSortField] = useState<SortField | null>(null)
@@ -180,6 +180,7 @@ export default function ProductsPage() {
       const res = await fetch('/api/products')
       if (res.ok) {
         const data = await res.json()
+        if (!Array.isArray(data)) throw new Error("Products API returned an invalid record list")
         setProducts(data)
       }
     } catch (error) {

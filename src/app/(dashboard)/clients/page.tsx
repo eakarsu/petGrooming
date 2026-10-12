@@ -70,7 +70,7 @@ export default function ClientsPage() {
 
   // Pagination
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(20)
   const [total, setTotal] = useState(0)
   const totalPages = Math.ceil(total / pageSize)
 
@@ -98,6 +98,7 @@ export default function ClientsPage() {
       const res = await fetch(`/api/clients?${params}`)
       if (res.ok) {
         const data = await res.json()
+        if (!Array.isArray(data.clients) || !data.pagination || !Number.isFinite(data.pagination.total)) throw new Error("Clients API returned an invalid page")
         setClients(data.clients)
         setTotal(data.pagination.total)
       }

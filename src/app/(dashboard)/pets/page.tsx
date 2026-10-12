@@ -110,10 +110,10 @@ export default function PetsPage() {
 
   // Pagination state
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(20)
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
-    limit: 10,
+    limit: 20,
     total: 0,
     totalPages: 0,
   })
@@ -141,6 +141,7 @@ export default function PetsPage() {
       const res = await fetch(`/api/pets?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
+        if (!Array.isArray(data.pets) || !data.pagination || !Number.isFinite(data.pagination.total)) throw new Error("Pets API returned an invalid page")
         setPets(data.pets)
         if (data.pagination) {
           setPagination(data.pagination)

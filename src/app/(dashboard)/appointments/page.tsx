@@ -101,13 +101,13 @@ export default function AppointmentsPage() {
   const router = useRouter()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedDate, setSelectedDate] = useState(localDate())
+  const [selectedDate, setSelectedDate] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
 
   // Pagination state
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(20)
 
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('scheduledTime')
@@ -202,7 +202,7 @@ export default function AppointmentsPage() {
   const fetchAppointments = async () => {
     try {
       setLoading(true)
-      let url = `/api/appointments?date=${selectedDate}`
+      let url = selectedDate ? `/api/appointments?date=${selectedDate}` : '/api/appointments?'
       if (statusFilter !== 'all') {
         url += `&status=${statusFilter}`
       }
@@ -210,6 +210,7 @@ export default function AppointmentsPage() {
       const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
+        if (!Array.isArray(data)) throw new Error("Appointments API returned an invalid record list")
         setAppointments(data)
       }
     } catch (error) {
@@ -358,7 +359,7 @@ export default function AppointmentsPage() {
     const dataToExport = selectedIds.size > 0
       ? sortedAppointments.filter((apt) => selectedIds.has(apt.id))
       : sortedAppointments
-    exportToCSV(dataToExport, exportColumns, `appointments-${selectedDate}`)
+    exportToCSV(dataToExport, exportColumns, `appointments-${selectedDate || 'all'}`)
     toast.success('CSV exported successfully')
   }
 
@@ -369,8 +370,8 @@ export default function AppointmentsPage() {
     exportToPDF(
       dataToExport,
       exportColumns,
-      `appointments-${selectedDate}`,
-      `Appointments - ${formatDate(selectedDate)}`
+      `appointments-${selectedDate || 'all'}`,
+      `Appointments - ${selectedDate ? formatDate(selectedDate) : 'All dates'}`
     )
     toast.success('PDF exported successfully')
   }
@@ -449,6 +450,8 @@ export default function AppointmentsPage() {
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="w-auto"
               />
+              <Button type="button" variant="outline" onClick={() => setSelectedDate(localDate())}>Today</Button>
+              <Button type="button" variant="outline" onClick={() => setSelectedDate('')}>All dates</Button>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40">
@@ -523,7 +526,7 @@ export default function AppointmentsPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {formatDate(selectedDate)} - {filteredAppointments.length} Appointment(s)
+            {selectedDate ? formatDate(selectedDate) : 'All dates'} - {filteredAppointments.length} Appointment(s)
             {filteredAppointments.length !== appointments.length && (
               <span className="text-sm font-normal text-gray-500 ml-2">
                 (filtered from {appointments.length})
